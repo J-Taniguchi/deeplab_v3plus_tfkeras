@@ -1,0 +1,205 @@
+import tensorflow as tf
+import tensorflow.keras as keras
+import tensorflow.keras.layers as layers
+import numpy as np
+
+def deeplab_v3plus(image_size, n_categories):
+    if np.mod(image_size[0],32) != 0 or np.mod(image_size[1],32) != 0:
+        raise exception("image_size must be multiples of 32")
+
+    if min(image_size) < 320:
+        raise exception("minimum(image_size) must be larger or equal than 320")
+
+    #xm means x_main. center flow of the fig. 4.
+    #xs means x_side. side flow of the fig. 4.
+    #encoder
+    inputs = layers.Input(shape=(image_size[0],image_size[1],3), name="inputs")
+    #entry_flow
+    #entry block 1
+    xm = Conv_BN(inputs, 32, filter=3, prefix="entry_b1", suffix="1", strides=2, dilation_rate=1)
+    xm = xs = Conv_BN(xm, 64, filter=3, prefix="entry_b1", suffix="2", strides=1, dilation_rate=1)
+
+    #entry block 2
+    #xm = layers.DepthwiseConv2D((3,3), depth_multiplier=2, padding="same", name="entry_b2_dcv1")(xm)
+    n_channels = 128
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b2", suffix="1", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b2", suffix="2", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b2", suffix="3", strides=2, dilation_rate=1)
+    xs = Conv_BN(xs, n_channels, filter=1, prefix="entry_b2_side", suffix="1", strides=2, dilation_rate=1)
+    xs = xm = layers.add([xs,xm], name="entry_b2_add")
+    #entry block 3
+    n_channels = 256
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b3", suffix="1", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b3", suffix="2", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b3", suffix="3", strides=2, dilation_rate=1)
+    xs = Conv_BN(xs, n_channels, filter=1, prefix="entry_b3_side", suffix="1", strides=2, dilation_rate=1)
+    xs = xm = x_dec = layers.add([xs,xm], name="entry_b3_add")
+    #entry block 4
+    n_channels = 728
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b4", suffix="1", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b4", suffix="2", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, n_channels, prefix="entry_b4", suffix="3", strides=2, dilation_rate=1)
+    xs = Conv_BN(xs, n_channels, filter=1, prefix="entry_b4_side", suffix="1", strides=2, dilation_rate=1)
+    xs = xm = layers.add([xs,xm], name="entry_b4_add")#middle flow
+    for i in range(16):
+        ii = i+1
+        xm = SepConv_BN(xm, n_channels, prefix="middle_b%d" % ii , suffix="1", strides=1, dilation_rate=1)
+        xm = SepConv_BN(xm, n_channels, prefix="middle_b%d" % ii, suffix="2", strides=1, dilation_rate=1)
+        xm = SepConv_BN(xm, n_channels, prefix="middle_b%d" % ii, suffix="3", strides=1, dilation_rate=1)
+        xs = xm = layers.add([xs,xm], name="middle_b%d_add" % ii)#middle flow
+    #exit flow
+    #exit block1
+    xm = SepConv_BN(xm, 728, prefix="exit_b1", suffix="1", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, 1024, prefix="exit_b1", suffix="2", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, 1024, prefix="exit_b1", suffix="3", strides=2, dilation_rate=1)
+    xs = Conv_BN(xs, 1024, filter=1, prefix="exit_b1_side", suffix="1", strides=2, dilation_rate=1)
+    xs = xm = layers.add([xs,xm], name="exit_b1_add")#middle flow
+
+    #exit block2
+    xm = SepConv_BN(xm, 1536, prefix="exit_b2", suffix="1", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, 1536, prefix="exit_b2", suffix="2", strides=1, dilation_rate=1)
+    xm = SepConv_BN(xm, 2048, prefix="exit_b2", suffix="3", strides=1, dilation_rate=1)
+
+    #encoder = keras.Model(inputs=inputs,outputs=xm, name="xception_encoder")
+
+    #get feature_size and cal dilation_rates
+    feature_size = keras.backend.int_shape(xm)[1:3]
+    min_feature_size = min(feature_size)
+    dilation_rates = cal_dilation_rates(min_feature_size)
+
+    #ASPP
+    aspp1 = Conv_BN(xm, 256, filter=1, prefix="aspp1", suffix="1", strides=1, dilation_rate=1)
+    aspp2 = SepConv_BN(xm, 256, prefix="aspp2", suffix="1", strides=1, dilation_rate=dilation_rates[0])
+    aspp3 = SepConv_BN(xm, 256, prefix="aspp3", suffix="1", strides=1, dilation_rate=dilation_rates[1])
+    aspp4 = SepConv_BN(xm, 256, prefix="aspp4", suffix="1", strides=1, dilation_rate=dilation_rates[2])
+
+    aspp5 = keras.backend.mean(xm, axis=[1,2], keepdims=True)
+    aspp5 = Conv_BN(aspp5, 256, filter=1, prefix="aspp5", suffix="1", strides=1, dilation_rate=1)
+    aspp5 = layers.UpSampling2D(feature_size, name="aspp5_upsampling")(aspp5)
+
+    ASPP = layers.concatenate([aspp1,aspp2,aspp3,aspp4,aspp5], name="ASPP")
+    ASPP = Conv_BN(ASPP, 256, filter=1, prefix="ASPP", suffix="1", strides=1, dilation_rate=1)
+    ASPP = layers.UpSampling2D(4, name="ASPP_upsample_4")(ASPP)
+
+    #decoder
+    x_dec = Conv_BN(x_dec, 256, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1)
+    x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
+    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1)
+    x_dec = layers.UpSampling2D(4, name="dec_upsample_1")(x_dec)
+
+    x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, last_activation=False)
+    x_dec = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
+    outputs = layers.UpSampling2D(2, name="dec_upsample_2")(x_dec)
+
+    model = keras.Model(inputs=inputs, outputs=outputs, name="deeplab-v3plus")
+    return model
+
+def deeplab_v3plus_transfer(n_categories, encoder, to_dec_layer_name, freeze_encoder=True):
+    layer_dict = dict([(layer.name, layer) for layer in encoder.layers])
+    inputs = encoder.input
+    xm = encoder.output
+    x_dec = layer_dict[to_dec_layer_name].output
+    if freeze_encoder:
+        for layer in encoder.layers:
+            layer.trainable = False
+
+    feature_size = keras.backend.int_shape(xm)[1:3]
+    min_feature_size = min(feature_size)
+    dilation_rates = cal_dilation_rates(min_feature_size)
+
+    #ASPP
+    aspp1 = Conv_BN(xm, 256, filter=1, prefix="aspp1", suffix="1", strides=1, dilation_rate=1)
+    aspp2 = SepConv_BN(xm, 256, prefix="aspp2", suffix="1", strides=1, dilation_rate=dilation_rates[0])
+    aspp3 = SepConv_BN(xm, 256, prefix="aspp3", suffix="1", strides=1, dilation_rate=dilation_rates[1])
+    aspp4 = SepConv_BN(xm, 256, prefix="aspp4", suffix="1", strides=1, dilation_rate=dilation_rates[2])
+
+    aspp5 = keras.backend.mean(xm, axis=[1,2], keepdims=True)
+    aspp5 = Conv_BN(aspp5, 256, filter=1, prefix="aspp5", suffix="1", strides=1, dilation_rate=1)
+    aspp5 = layers.UpSampling2D(feature_size, name="aspp5_upsampling")(aspp5)
+
+    ASPP = layers.concatenate([aspp1,aspp2,aspp3,aspp4,aspp5], name="ASPP")
+    ASPP = Conv_BN(ASPP, 256, filter=1, prefix="ASPP", suffix="1", strides=1, dilation_rate=1)
+    ASPP = layers.UpSampling2D(4, name="ASPP_upsample_4")(ASPP)
+
+    #decoder
+    x_dec = Conv_BN(x_dec, 256, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1)
+    x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
+    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1)
+    x_dec = layers.UpSampling2D(4, name="dec_upsample_1")(x_dec)
+
+    x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, last_activation=False)
+    x_dec = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
+    outputs = layers.UpSampling2D(2, name="dec_upsample_2")(x_dec)
+
+    model = keras.Model(inputs=inputs, outputs=outputs, name=encoder.name + "_deeplab-v3plus")
+    return model
+    pass
+
+def deeplab_v3plus_transfer_os16(n_categories, encoder, layer_name_to_decoder, encoder_end_layer_name, freeze_encoder=True):
+    layer_dict = dict([(layer.name, layer) for layer in encoder.layers])
+    inputs = encoder.input
+    xm = layer_dict[encoder_end_layer_name].output
+    x_dec = layer_dict[layer_name_to_decoder].output
+    if freeze_encoder:
+        for layer in encoder.layers:
+            layer.trainable = False
+
+    feature_size = keras.backend.int_shape(xm)[1:3]
+    min_feature_size = min(feature_size)
+    dilation_rates = cal_dilation_rates(min_feature_size)
+
+    #ASPP
+    aspp1 = Conv_BN(xm, 256, filter=1, prefix="aspp1", suffix="1", strides=1, dilation_rate=1)
+    aspp2 = SepConv_BN(xm, 256, prefix="aspp2", suffix="1", strides=1, dilation_rate=dilation_rates[0])
+    aspp3 = SepConv_BN(xm, 256, prefix="aspp3", suffix="1", strides=1, dilation_rate=dilation_rates[1])
+    aspp4 = SepConv_BN(xm, 256, prefix="aspp4", suffix="1", strides=1, dilation_rate=dilation_rates[2])
+
+    aspp5 = keras.backend.mean(xm, axis=[1,2], keepdims=True)
+    aspp5 = Conv_BN(aspp5, 256, filter=1, prefix="aspp5", suffix="1", strides=1, dilation_rate=1)
+    aspp5 = layers.UpSampling2D(feature_size, name="aspp5_upsampling")(aspp5)
+
+    ASPP = layers.concatenate([aspp1,aspp2,aspp3,aspp4,aspp5], name="ASPP")
+    ASPP = Conv_BN(ASPP, 256, filter=1, prefix="ASPP", suffix="1", strides=1, dilation_rate=1)
+    ASPP = layers.UpSampling2D(4, name="ASPP_upsample_4")(ASPP)
+
+    #decoder
+    x_dec = Conv_BN(x_dec, 256, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1)
+    x_dec = layers.UpSampling2D(2, name="dec_upsample1")(x_dec)
+    x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
+    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1)
+    x_dec = layers.UpSampling2D(2, name="dec_upsample_2")(x_dec)
+
+    x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, last_activation=False)
+    x_dec = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
+    outputs = layers.UpSampling2D(2, name="dec_upsample_3")(x_dec)
+
+    model = keras.Model(inputs=inputs, outputs=outputs, name=encoder.name + "_deeplab-v3plus")
+    return model
+    pass
+
+
+def cal_dilation_rates(im_size):
+    max_atrous_rate = im_size//2 - 1
+    if max_atrous_rate <=3:
+        raise exception("minimum(image_size) is too small")
+    else:
+        a = np.linspace(0,32//3,4)
+        return np.ceil(a).astype(np.int)[1:]
+
+
+def SepConv_BN(x, n_channels, prefix=" ", suffix=" ", strides=1, dilation_rate=1, last_activation=True):
+    x = layers.DepthwiseConv2D((3,3), strides, dilation_rate=(dilation_rate,dilation_rate), padding="same", name=prefix+"_sc"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_sc-bn"+suffix)(x)
+    x = layers.Activation(tf.nn.relu, name=prefix+"_sc-act"+suffix)(x)
+    x = layers.Conv2D(n_channels,(1,1), padding="same", name=prefix+"_cv"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_cv-bn"+suffix)(x)
+    if last_activation == True:
+        x = layers.Activation(tf.nn.relu, name=prefix+"_cv-act"+suffix)(x)
+    return x
+
+
+def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation_rate=1):
+    x = layers.Conv2D(n_channels, filter, strides, dilation_rate=(dilation_rate,dilation_rate), padding="same", name=prefix+"_cv"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_bn"+suffix)(x)
+    x = layers.Activation(tf.nn.relu, name=prefix+"_act"+suffix)(x)
+    return x
