@@ -85,3 +85,6 @@ xception_transfer_os16/000032.h5
 xception_transfer_os16/000036.h5
 test2.h5
 xception_transfer_os16/
+resnet50_transfer_os16/
+unfreeze_xception_transfer/
+xception_transfer_os16_old/

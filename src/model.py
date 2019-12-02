@@ -164,7 +164,8 @@ def deeplab_v3plus_transfer_os16(n_categories, encoder, layer_name_to_decoder, e
 
     #decoder
     x_dec = Conv_BN(x_dec, 256, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1)
-    x_dec = layers.UpSampling2D(2, name="dec_upsample1")(x_dec)
+    print("in decoder, layer from encoder is resized from " + str(x_dec.shape) + " to " + str(ASPP.shape))
+    x_dec = Resize_Layer(x_dec, ASPP.shape[1:3], name="dec1_resize")
     x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
     x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1)
     x_dec = layers.UpSampling2D(2, name="dec_upsample_2")(x_dec)
@@ -175,8 +176,6 @@ def deeplab_v3plus_transfer_os16(n_categories, encoder, layer_name_to_decoder, e
 
     model = keras.Model(inputs=inputs, outputs=outputs, name=encoder.name + "_deeplab-v3plus")
     return model
-    pass
-
 
 def cal_dilation_rates(im_size):
     max_atrous_rate = im_size//2 - 1
@@ -203,3 +202,6 @@ def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation
     x = layers.BatchNormalization(name=prefix+"_bn"+suffix)(x)
     x = layers.Activation(tf.nn.relu, name=prefix+"_act"+suffix)(x)
     return x
+
+def Resize_Layer(inputs, out_tensor_hw, name="resize"): # resizes input tensor wrt. ref_tensor
+    return tf.image.resize_nearest_neighbor(inputs, out_tensor_hw, name=name)

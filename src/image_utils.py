@@ -39,7 +39,7 @@ def convert_y_to_image_array(y, image_size, n_categories, palette, threshold=0.0
     for i in range(y.shape[0]):
         out_img0 = np.zeros((*image_size, 3), np.float32)
         under_threshold = y[i,:,:,:].max(2) < threshold
-        y[i,under_threshold,0] = 1.0
+        y[i,under_threshold,0] = 0.0
         max_category = y[i,:,:,:].argmax(2)
         for j in range(n_categories):
             out_img0[max_category==j] = palette[j,:]
