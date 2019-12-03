@@ -90,3 +90,8 @@ unfreeze_xception_transfer/
 xception_transfer_os16_old/
 .ipynb_checkpoints/
 src/__pycache__/
+test.ipynb
+test2.ipynb
+transfer.ipynb
+transfer2.ipynb
+transfer-resnet50-os16.ipynb
