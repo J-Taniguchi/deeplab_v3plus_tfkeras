@@ -4,16 +4,27 @@ from image_utils import make_x_from_image_paths, make_y_from_image_paths
 from data_augment import data_augment
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, n_categories, image_size, batch_size, img_paths, seg_img_paths, preprocess=None, augmentation=True, shuffle=True):
-        self.n_categories = n_categories
-        self.image_size = image_size
-        self.batch_size = batch_size
+    def __init__(self,
+                 img_paths,
+                 seg_img_paths,
+                 image_size,
+                 label_pd,
+                 batch_size,
+                 preprocess=None,
+                 augmentation=True,
+                 shuffle=True,
+                 is_index_png=False):
         self.img_paths = np.array(img_paths)
         self.seg_img_paths = np.array(seg_img_paths)
+        self.image_size = image_size
+        self.label_pd = label_pd
+        self.label_np = np.array(label_pd.iloc[:,1:])
+        self.batch_size = batch_size
         self.n_images = len(img_paths)
         self.augmentation = augmentation
         self.preprocess = preprocess
         self.shuffle = shuffle
+        self.is_index_png = is_index_png
 
         self.batch_ind = np.arange(self.n_images)
 
@@ -27,7 +38,7 @@ class DataGenerator(keras.utils.Sequence):
         batch_y_paths = self.seg_img_paths[tar_ind]
 
         x = make_x_from_image_paths(batch_x_paths, self.image_size)
-        y = make_y_from_image_paths(batch_y_paths, self.image_size, self.n_categories)
+        y = make_y_from_image_paths(batch_y_paths, self.image_size, self.label_np, self.is_index_png)
 
         if self.augmentation == True:
             x,y = data_augment(x,y,image_size=self.image_size, p=0.95)

@@ -95,3 +95,7 @@ test2.ipynb
 transfer.ipynb
 transfer2.ipynb
 transfer-resnet50-os16.ipynb
+pascal_voc_label.csv
+test.csv
+test.png
+TEST/
