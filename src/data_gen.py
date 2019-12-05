@@ -1,30 +1,33 @@
 import numpy as np
 import tensorflow.keras as keras
-from image_utils import make_x_from_image_paths, make_y_from_image_paths
+from data_utils import make_x_from_data_paths, make_y_from_data_paths
 from data_augment import data_augment
+from label import Label
 
 class DataGenerator(keras.utils.Sequence):
     def __init__(self,
                  img_paths,
                  seg_img_paths,
                  image_size,
-                 label_pd,
+                 label: Label,
                  batch_size,
                  preprocess=None,
                  augmentation=True,
                  shuffle=True,
-                 is_index_png=False):
+                 data_type="image"):
         self.img_paths = np.array(img_paths)
         self.seg_img_paths = np.array(seg_img_paths)
         self.image_size = image_size
-        self.label_pd = label_pd
-        self.label_np = np.array(label_pd.iloc[:,1:])
+        self.label = label
         self.batch_size = batch_size
         self.n_images = len(img_paths)
         self.augmentation = augmentation
         self.preprocess = preprocess
         self.shuffle = shuffle
-        self.is_index_png = is_index_png
+        self.data_type = data_type
+
+        if (data_type != "image") and (data_type !="index_png") and (data_type !="polygon"):
+            raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
 
         self.batch_ind = np.arange(self.n_images)
 
@@ -37,8 +40,8 @@ class DataGenerator(keras.utils.Sequence):
         batch_x_paths = self.img_paths[tar_ind]
         batch_y_paths = self.seg_img_paths[tar_ind]
 
-        x = make_x_from_image_paths(batch_x_paths, self.image_size)
-        y = make_y_from_image_paths(batch_y_paths, self.image_size, self.label_np, self.is_index_png)
+        x = make_x_from_data_paths(batch_x_paths, self.image_size)
+        y = make_y_from_data_paths(batch_y_paths, self.image_size, self.label, data_type=self.data_type)
 
         if self.augmentation == True:
             x,y = data_augment(x,y,image_size=self.image_size, p=0.95)
@@ -54,29 +57,3 @@ class DataGenerator(keras.utils.Sequence):
     def on_epoch_end(self):
         if self.shuffle:
             np.random.shuffle(self.batch_ind)
-
-'''
-def make_data_gen(params, augmentation=True):
-    while True :
-        batch = make_batch(params)
-        for i in range(len(batch)):
-            now_img_paths     = [params.img_paths    [batch[i][j]] for j in range(params.batch_size)]
-            now_seg_img_paths = [params.seg_img_paths[batch[i][j]] for j in range(params.batch_size)]
-
-            x = make_x_from_image_paths(now_img_paths, params)
-            y = make_y_from_image_paths(now_seg_img_paths, params)
-
-            if augmentation == True:
-                x,y = data_augment(x,y)
-
-            yield (x/127.5)-1, y
-
-def make_batch(params):
-    shuffle_ind = np.random.permutation(np.arange(params.n_images))
-    batch = []
-    for i in range(params.n_batch):
-        s = i * params.batch_size
-        e = (i+1) * params.batch_size + 1
-        batch.append(shuffle_ind[s:e])
-    return batch
-'''
