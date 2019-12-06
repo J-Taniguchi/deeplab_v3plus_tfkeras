@@ -100,3 +100,4 @@ test.csv
 test.png
 TEST/
 polygon_test/
+__pycache__/
