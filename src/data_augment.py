@@ -31,7 +31,7 @@ def augmentor(p, image_size):
             ChannelShuffle(p=1.0),
         ], p=0.5),
         #HueSaturationValue(p=0.5),
-        Cutout(max_h_size=cutout_size, max_w_size=cutout_size, p=0.3),
+        #Cutout(max_h_size=cutout_size, max_w_size=cutout_size, p=0.3),
     ], p=p)
 
 def data_augment(images, masks, image_size, p):

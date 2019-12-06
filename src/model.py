@@ -182,12 +182,13 @@ def deeplab_v3plus_transfer_os16(n_categories,
 
     x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, last_activation=False)
 
-    if output_activation == 'softmax':
-        x_dec = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
-    elif output_activation == 'sigmoid':
-        x_dec = layers.Activation(tf.nn.sigmoid, name="sigmoid")(x_dec)
+    x_dec = layers.UpSampling2D(2, name="dec_upsample_3")(x_dec)
+    #x_dec = Conv_BN(x_dec, n_categories, prefix="last_dec", suffix="1", strides=1, dilation_rate=1)
 
-    outputs = layers.UpSampling2D(2, name="dec_upsample_3")(x_dec)
+    if output_activation == 'softmax':
+        outputs = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
+    elif output_activation == 'sigmoid':
+        outputs = layers.Activation(tf.nn.sigmoid, name="sigmoid")(x_dec)
 
     model = keras.Model(inputs=inputs, outputs=outputs, name=encoder.name + "_deeplab-v3plus")
     return model
