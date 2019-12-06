@@ -2,7 +2,7 @@
 
 Programs for semantic segmentation. Useage is written in ipynb files.
 
-- you can annotate as
+- you can make annotation file as
   - RGB image
   - index png image(like pascal voc2012)
   - polygon ([labelme](https://github.com/wkentaro/labelme) json file.)
