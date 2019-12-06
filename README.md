@@ -1,6 +1,6 @@
 # deeplab_v3plus_tfkeras
 
-Programs for semantic segmentation. Useage is in ipynb files.
+Programs for semantic segmentation. Useage is written in ipynb files.
 
 - you can annotate as
   - RGB image
