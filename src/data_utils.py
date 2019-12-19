@@ -44,15 +44,17 @@ def make_y_from_poly_json_path(data_path, image_size, label):
     else:
         with open(data_path) as d:
             poly_json = json.load(d)
+
+        org_image_size = (poly_json["imageWidth"], poly_json["imageHeight"])
         n_poly = len(poly_json['shapes'])
 
         images = []
         draws  = []
         for i in range(label.n_labels):
             if i == 0: #背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
-                images.append(Image.new(mode='1', size=image_size, color=True))
+                images.append(Image.new(mode='1', size=org_image_size, color=True))
             else:
-                images.append(Image.new(mode='1', size=image_size, color=False))
+                images.append(Image.new(mode='1', size=org_image_size, color=False))
             draws.append(ImageDraw.Draw(images[i]))
 
         for i in range(n_poly):
@@ -68,7 +70,7 @@ def make_y_from_poly_json_path(data_path, image_size, label):
                 draws[0].polygon(poly, fill=False)
 
         for i in range(label.n_labels):
-            y[:,:,i] = np.array(images[i])
+            y[:,:,i] = np.array(images[i].resize(image_size))
     return y
 
 def convert_image_array_to_y(image_array, label):

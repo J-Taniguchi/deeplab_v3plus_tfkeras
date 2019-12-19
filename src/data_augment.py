@@ -12,7 +12,7 @@ def augmentor(p, image_size):
             IAAAdditiveGaussianNoise(p=1.0),
             GaussNoise(p=1.0),
         ], p=0.5),
-        ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.5),
+        #ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.5),
         #OneOf([
             #OpticalDistortion(p=1.0),
             #GridDistortion(p=1.0),
