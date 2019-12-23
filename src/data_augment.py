@@ -23,10 +23,12 @@ def augmentor(p, image_size):
             #CLAHE(p=1.0),
             #IAASharpen(p=1.0),
             #IAAEmboss(p=1.0),
+            RandomBrightnessContrast(p=1.0),
             RandomGamma(p=1.0),
-            #RandomContrast(p=1.0),
+            RandomContrast(p=1.0),
             RandomBrightness(p=1.0),
         ], p=0.5),
+        RGBShift(p=0.5),
         #OneOf([
             #RGBShift(p=1.0),
             #ChannelShuffle(p=1.0),

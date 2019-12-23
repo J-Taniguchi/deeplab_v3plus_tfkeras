@@ -125,8 +125,7 @@ def make_xy_from_data_paths(x_paths,
                 y0 = convert_image_array_to_y(image, label)
                 y.append(y0)
             elif data_type == "polygon":
-                #要編集
-                y0 = make_y_from_poly_json_path(y_path, image_size, label,crop_areas[i])
+                y0 = make_y_from_poly_json_path(y_path, image_size, label, crop_areas[i])
                 y.append(y0)
             else:
                 raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
@@ -249,12 +248,12 @@ def get_random_crop_area(image_size, out_size):
     ymax = ymin + out_size[1]
     return (xmin, ymin, xmax, ymax)
 
-def convert_y_to_image_array(y, image_size, label, threshold=0.0):
+def convert_y_to_image_array(y, image_size, label, threshold=0.5):
     out_img = []
     for i in range(y.shape[0]):
         out_img0 = np.zeros((*image_size, 3), np.uint8)
         under_threshold = y[i,:,:,:].max(2) < threshold
-        y[i,under_threshold,0] = 0.0
+        y[i,under_threshold,0] = 1.0
         max_category = y[i,:,:,:].argmax(2)
         for j in range(label.n_labels):
             out_img0[max_category==j] = label.color[j,:]
