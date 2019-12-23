@@ -86,7 +86,7 @@ def make_xy_from_data_paths(x_paths,
         x.append(image)
     x = np.array(x)
 
-    if y_paths == None:
+    if y_paths is None:
         return x, None
 
     y = []
