@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow.keras as keras
-from data_utils import make_x_from_data_paths, make_y_from_data_paths
+from data_utils import make_xy_from_data_paths
 from data_augment import data_augment
 from label import Label
 
@@ -14,6 +14,7 @@ class DataGenerator(keras.utils.Sequence):
                  preprocess=None,
                  augmentation=True,
                  shuffle=True,
+                 resize_or_crop="resize",
                  data_type="image"):
         self.img_paths = np.array(img_paths)
         self.seg_img_paths = np.array(seg_img_paths)
@@ -24,6 +25,9 @@ class DataGenerator(keras.utils.Sequence):
         self.augmentation = augmentation
         self.preprocess = preprocess
         self.shuffle = shuffle
+        if resize_or_crop != 'resize' and resize_or_crop != 'crop':
+            raise Exception("resize_or_crop must be 'resize' or 'crop'.")
+        self.resize_or_crop = resize_or_crop
         self.data_type = data_type
 
         if (data_type != "image") and (data_type !="index_png") and (data_type !="polygon"):
@@ -40,8 +44,13 @@ class DataGenerator(keras.utils.Sequence):
         batch_x_paths = self.img_paths[tar_ind]
         batch_y_paths = self.seg_img_paths[tar_ind]
 
-        x = make_x_from_data_paths(batch_x_paths, self.image_size)
-        y = make_y_from_data_paths(batch_y_paths, self.image_size, self.label, data_type=self.data_type)
+        x,y = make_xy_from_data_paths(batch_x_paths,
+                                      batch_y_paths,
+                                      self.image_size,
+                                      self.label,
+                                      data_type=self.data_type,
+                                      resize_or_crop=self.resize_or_crop)
+
 
         if self.augmentation == True:
             x,y = data_augment(x,y,image_size=self.image_size, p=0.95)

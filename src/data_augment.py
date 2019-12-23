@@ -20,16 +20,17 @@ def augmentor(p, image_size):
             #ElasticTransform(p=1.0),
         #], p=0.5),
         OneOf([
-            CLAHE(p=1.0),
-            IAASharpen(p=1.0),
-            IAAEmboss(p=1.0),
-            RandomBrightnessContrast(p=1.0),
+            #CLAHE(p=1.0),
+            #IAASharpen(p=1.0),
+            #IAAEmboss(p=1.0),
+            RandomGamma(p=1.0),
+            #RandomContrast(p=1.0),
             RandomBrightness(p=1.0),
         ], p=0.5),
-        OneOf([
-            RGBShift(p=1.0),
-            ChannelShuffle(p=1.0),
-        ], p=0.5),
+        #OneOf([
+            #RGBShift(p=1.0),
+            #ChannelShuffle(p=1.0),
+        #], p=0.5),
         #HueSaturationValue(p=0.5),
         #Cutout(max_h_size=cutout_size, max_w_size=cutout_size, p=0.3),
     ], p=p)
