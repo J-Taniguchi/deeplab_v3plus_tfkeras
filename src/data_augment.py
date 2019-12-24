@@ -6,6 +6,7 @@ def augmentor(p, image_size):
     return Compose([
         #RandomResizedCrop(*image_size, scale=(0.75,1.0), p=0.5),
         RandomRotate90(p=0.5),
+        Rotate(p=0.5),
         Flip(p=0.5),
         Transpose(p=0.5),
         OneOf([
@@ -28,12 +29,12 @@ def augmentor(p, image_size):
             RandomContrast(p=1.0),
             RandomBrightness(p=1.0),
         ], p=0.5),
-        RGBShift(p=0.5),
         #OneOf([
             #RGBShift(p=1.0),
             #ChannelShuffle(p=1.0),
         #], p=0.5),
-        #HueSaturationValue(p=0.5),
+        RGBShift(p=0.5),
+        HueSaturationValue(p=0.5),
         #Cutout(max_h_size=cutout_size, max_w_size=cutout_size, p=0.3),
     ], p=p)
 

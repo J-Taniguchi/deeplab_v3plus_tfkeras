@@ -3,12 +3,170 @@ from PIL import Image, ImageDraw
 import pandas as pd
 import json
 
+def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5, batch_size=8):
+    """inference for large image.
+        If mode is "simple_crop", simply crop the large image to the model size.
+        If mode is "center", only using the center of the prediction.
+        If mode is "max_confidence", crop the large image while overrapping, calculate sum of the prediction,
+        and, take maximum index as mask.
 
+    Args:
+        img_path (path): path for a large image for inference.
+        model (Model): trained model
+        preprocess (function): preprocessor for the model.
+        label (Label):
+        mode (str): "simple_crop" or "center" or "max_confidence"
+        threshold (float): prediction under this value is treated as "background". Defaults to 0.5.
+        batch_size (int): . Defaults to 8.
+
+    Returns:
+        np.array, np.array: image array of x and mask.
+
+    """
+    image_size = model.input_shape[1:3][::-1]
+    image_size_half = (image_size[0]//2, image_size[1]//2)
+    image_size_quarter = (image_size[0]//4, image_size[1]//4)
+
+    large_image = Image.open(img_path)
+    w_org, h_org = large_image.size
+
+    if mode == "simple_crop":
+        nx = np.int(np.ceil(w_org / image_size[0]))
+        ny = np.int(np.ceil(h_org / image_size[1]))
+
+        x_inds = np.linspace(0, w_org, nx+1, dtype=int)[0:-1]
+        y_inds = np.linspace(0, h_org, ny+1, dtype=int)[0:-1]
+
+        x = []
+        start_index = []
+        for i, x_ind in enumerate(x_inds):
+            for j, y_ind in enumerate(y_inds):
+                start_index.append([x_ind, y_ind])
+                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
+                croped_image = large_image.crop(crop_area)
+                croped_image = np.array(croped_image, np.uint8)
+                x.append(croped_image)
+
+        x = np.array(x)
+        start_index = np.array(start_index)
+
+        print("predicting")
+        y = model.predict(preprocess(x), batch_size=8)
+
+        print("converting y to PIL image")
+        y_croped_img_array = np.array(convert_y_to_image_array(y, label, threshold=threshold))
+
+        print("merging image")
+        large_mask_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
+        for i in range(start_index.shape[0]):
+            now_x = start_index[i,0]
+            now_y = start_index[i,1]
+            large_mask_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = y_croped_img_array[i,:,:,:]
+        return np.array(large_image), large_mask_image[0:h_org,0:w_org,:]
+
+    elif mode == "center":
+        w = w_org + image_size_half[0]
+        h = h_org + image_size_half[1]
+        x_inds = np.arange(0, w, image_size_half[0])[0:-1]
+        y_inds = np.arange(0, h, image_size_half[1])[0:-1]
+
+        padded_large_image = np.zeros((h,w,3), dtype=np.uint8)
+        #put original image to larger black image.
+        padded_large_image[image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:] \
+            = large_image
+        padded_large_image = Image.fromarray(padded_large_image)
+
+        x = []
+        start_index = []
+        for i, x_ind in enumerate(x_inds):
+            for j, y_ind in enumerate(y_inds):
+                start_index.append([x_ind, y_ind])
+                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
+                croped_image = padded_large_image.crop(crop_area)
+                croped_image = np.array(croped_image, np.uint8)
+                x.append(croped_image)
+
+        x = np.array(x)
+        start_index = np.array(start_index)
+
+        print("predicting")
+        y = model.predict(preprocess(x), batch_size=8)
+
+        print("converting y to PIL image")
+        croped_y_img_array = np.array(convert_y_to_image_array(y, label, threshold=threshold))
+
+        print("merging image")
+        #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
+        #so, initial mask must larger than h and w.
+        mask_image = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
+        for i in range(start_index.shape[0]):
+            now_x = start_index[i,0]# + image_size_half[0]
+            now_y = start_index[i,1]# + image_size_half[1]
+            mask_image[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
+                = croped_y_img_array[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
+
+        return np.array(large_image), mask_image[0:h_org,0:w_org,:]
+    elif mode == "max_confidence":
+        w = w_org + (image_size[0] - 1) * 2
+        h = h_org + (image_size[1] - 1) * 2
+        x_inds = np.arange(0, w, image_size_quarter[0])[0:-1]
+        y_inds = np.arange(0, h, image_size_quarter[1])[0:-1]
+
+        padded_large_image = np.zeros((h,w,3), dtype=np.uint8)
+        #put original image to larger black image.
+        padded_large_image[(image_size[1]-1):(image_size[1]-1)+h_org,
+                           (image_size[0]-1):(image_size[0]-1)+w_org,:] \
+            = large_image
+        padded_large_image = Image.fromarray(padded_large_image)
+
+        x = []
+        start_index = []
+        for i, x_ind in enumerate(x_inds):
+            for j, y_ind in enumerate(y_inds):
+                start_index.append([x_ind, y_ind])
+                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
+                croped_image = padded_large_image.crop(crop_area)
+                croped_image = np.array(croped_image, np.uint8)
+                x.append(croped_image)
+
+        x = np.array(x)
+        start_index = np.array(start_index)
+
+        print("predicting")
+        y = model.predict(preprocess(x), batch_size=8)
+        under_threshold = y[:,:,:,:].max(3) < threshold
+        y[under_threshold,:] = 0.0
+        y[under_threshold,0] = 1.0
+
+        print("merging image")
+        #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
+        #so, initial mask must larger than h and w.
+        mask = np.zeros((h+image_size[1], w+image_size[0], y.shape[-1]), dtype=np.float32)
+
+        for i in range(start_index.shape[0]):
+            now_x = start_index[i,0]# + image_size_half[0]
+            now_y = start_index[i,1]# + image_size_half[1]
+            mask[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] \
+                += y[i,:,:,:]
+
+        print("converting y to PIL image")
+        mask_image = convert_y_to_image_array(mask[np.newaxis,:,:,:], label, threshold=0.0)
+
+        return np.array(large_image), mask_image[0][(image_size[1]-1):(image_size[1]-1)+h_org,
+                                                    (image_size[0]-1):(image_size[0]-1)+w_org,:]
+
+    else:
+        raise Exception("mode must be \"simple_crop\" or \"center\" or \"max_confidence\"")
+
+
+
+
+'''
 def make_x_from_large_img_path(data_path, image_size):
     """crop one large image to image_size.
 
     Args:
-        data_path (str): large image path(larger than image_size)
+        data_path (str): large image path(must be larger than image_size)
         image_size (tuple): input image size.
 
     Returns:
@@ -49,6 +207,7 @@ def merge_croped_large_image(x, image_size, start_ind):
         now_y = start_ind[i,1]
         large_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = x[i,:,:,:]
     return large_image
+'''
 
 def make_xy_from_data_paths(x_paths,
                             y_paths,
@@ -248,10 +407,10 @@ def get_random_crop_area(image_size, out_size):
     ymax = ymin + out_size[1]
     return (xmin, ymin, xmax, ymax)
 
-def convert_y_to_image_array(y, image_size, label, threshold=0.5):
+def convert_y_to_image_array(y, label, threshold=0.5):
     out_img = []
     for i in range(y.shape[0]):
-        out_img0 = np.zeros((*image_size, 3), np.uint8)
+        out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
         under_threshold = y[i,:,:,:].max(2) < threshold
         y[i,under_threshold,0] = 1.0
         max_category = y[i,:,:,:].argmax(2)
