@@ -4,15 +4,22 @@ import numpy as np
 def augmentor(p, image_size):
     cutout_size = min(image_size) //20
     return Compose([
-        #RandomResizedCrop(*image_size, scale=(0.75,1.0), p=0.5),
-        RandomRotate90(p=0.5),
-        Rotate(p=0.5),
+        #RandomResizedCrop(*image_size, scale=(0.5,2.0), p=0.5),
+        #RandomRotate90(p=0.5),
+        #Rotate(p=0.5),
+        #ShiftScaleRotate(rotate_limit=180, scale_limit=(-0.5, 1.1), shift_limit=0.0, p=1.0)
+        OneOf([
+            ShiftScaleRotate(rotate_limit=180, scale_limit=(-0.5, 1.1), shift_limit=0.0, interpolation=0, p=1.0),
+            ShiftScaleRotate(rotate_limit=180, scale_limit=(-0.5, 1.1), shift_limit=0.0, interpolation=1, p=1.0),
+            ], p=0.8),
         Flip(p=0.5),
         Transpose(p=0.5),
+        Downscale(scale_min=0.25, scale_max=0.8, p=0.3),
         OneOf([
             IAAAdditiveGaussianNoise(p=1.0),
             GaussNoise(p=1.0),
-        ], p=0.5),
+            JpegCompression(p=1.0,quality_lower=50, quality_upper=100),
+        ], p=0.8),
         #ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.5),
         #OneOf([
             #OpticalDistortion(p=1.0),
@@ -35,6 +42,7 @@ def augmentor(p, image_size):
         #], p=0.5),
         RGBShift(p=0.5),
         HueSaturationValue(p=0.5),
+        #RandomShadow(p=0.5),
         #Cutout(max_h_size=cutout_size, max_w_size=cutout_size, p=0.3),
     ], p=p)
 
