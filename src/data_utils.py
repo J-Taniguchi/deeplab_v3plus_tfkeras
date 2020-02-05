@@ -23,6 +23,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         np.array, np.array: image array of x and mask.
 
     """
+    last_activation = model.layers[-1].name
     image_size = model.input_shape[1:3][::-1]
     image_size_half = (image_size[0]//2, image_size[1]//2)
     image_size_quarter = (image_size[0]//4, image_size[1]//4)
@@ -54,15 +55,30 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         y = model.predict(preprocess(x), batch_size=8)
 
         print("converting y to PIL image")
-        y_croped_img_array = np.array(convert_y_to_image_array(y, label, threshold=threshold))
+        croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
 
         print("merging image")
-        large_mask_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
-        for i in range(start_index.shape[0]):
-            now_x = start_index[i,0]
-            now_y = start_index[i,1]
-            large_mask_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = y_croped_img_array[i,:,:,:]
-        return np.array(large_image), large_mask_image[0:h_org,0:w_org,:]
+        if last_activation == "softmax":
+            croped_y_img_array = np.array(croped_y_img_array)
+            large_mask_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
+            for i in range(start_index.shape[0]):
+                now_x = start_index[i,0]
+                now_y = start_index[i,1]
+                large_mask_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = croped_y_img_array[i,:,:,:]
+            return np.array(large_image), large_mask_image[0:h_org,0:w_org,:]
+        elif last_activation == "sigmoid":
+            large_mask_image = []
+            n_seg_img = len(croped_y_img_array)
+            for j in range(n_seg_img):
+                croped_y_img_array0 = np.array(croped_y_img_array[j])
+                large_mask_image0 = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
+                for i in range(start_index.shape[0]):
+                    now_x = start_index[i,0]
+                    now_y = start_index[i,1]
+                    large_mask_image0[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = croped_y_img_array0[i,:,:,:]
+                large_mask_image.append(copy.deepcopy(large_mask_image0[0:h_org,0:w_org,:]))
+            return np.array(large_image), large_mask_image
+
 
     elif mode == "center":
         w = w_org + image_size_half[0]
@@ -93,19 +109,34 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         y = model.predict(preprocess(x), batch_size=8)
 
         print("converting y to PIL image")
-        croped_y_img_array = np.array(convert_y_to_image_array(y, label, threshold=threshold))
+        croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
 
         print("merging image")
         #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
         #so, initial mask must larger than h and w.
-        mask_image = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
-        for i in range(start_index.shape[0]):
-            now_x = start_index[i,0]# + image_size_half[0]
-            now_y = start_index[i,1]# + image_size_half[1]
-            mask_image[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
-                = croped_y_img_array[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
+        if last_activation == "softmax":
+            croped_y_img_array = np.array(croped_y_img_array)
+            mask_image = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
+            for i in range(start_index.shape[0]):
+                now_x = start_index[i,0]# + image_size_half[0]
+                now_y = start_index[i,1]# + image_size_half[1]
+                mask_image[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
+                    = croped_y_img_array[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
+            return np.array(large_image), mask_image[0:h_org,0:w_org,:]
+        elif last_activation == "sigmoid":
+            mask_image = []
+            n_seg_img = len(croped_y_img_array)
+            for j in range(n_seg_img):
+                croped_y_img_array0 = np.array(croped_y_img_array[j])
+                mask_image0 = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
+                for i in range(start_index.shape[0]):
+                    now_x = start_index[i,0]
+                    now_y = start_index[i,1]
+                    mask_image0[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
+                        = croped_y_img_array0[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
+                mask_image.append(copy.deepcopy(mask_image0[0:h_org,0:w_org,:]))
+            return np.array(large_image), mask_image
 
-        return np.array(large_image), mask_image[0:h_org,0:w_org,:]
     elif mode == "max_confidence":
         w = w_org + (image_size[0] - 1) * 2
         h = h_org + (image_size[1] - 1) * 2
@@ -134,26 +165,36 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
 
         print("predicting")
         y = model.predict(preprocess(x), batch_size=8)
-        under_threshold = y[:,:,:,:].max(3) < threshold
-        y[under_threshold,:] = 0.0
-        y[under_threshold,0] = 1.0
 
         print("merging image")
         #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
         #so, initial mask must larger than h and w.
         mask = np.zeros((h+image_size[1], w+image_size[0], y.shape[-1]), dtype=np.float32)
+        mask_count = np.zeros((h+image_size[1], w+image_size[0], y.shape[-1]), dtype=np.float32)
 
         for i in range(start_index.shape[0]):
             now_x = start_index[i,0]# + image_size_half[0]
             now_y = start_index[i,1]# + image_size_half[1]
             mask[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] \
                 += y[i,:,:,:]
+            mask_count[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] += 1
+        mask = mask[(image_size[1]-1):(image_size[1]-1)+h_org, (image_size[0]-1):(image_size[0]-1)+w_org, :]
+        mask_count = mask_count[(image_size[1]-1):(image_size[1]-1)+h_org, (image_size[0]-1):(image_size[0]-1)+w_org, :]
+        if mask_count.min() <= 0:
+            raise Exception("SOMTING WRONG")
+        mask = mask / mask_count
 
         print("converting y to PIL image")
-        mask_image = convert_y_to_image_array(mask[np.newaxis,:,:,:], label, threshold=0.0)
 
-        return np.array(large_image), mask_image[0][(image_size[1]-1):(image_size[1]-1)+h_org,
-                                                    (image_size[0]-1):(image_size[0]-1)+w_org,:]
+        mask_image = convert_y_to_image_array(mask[np.newaxis,:,:,:],
+                                              label,
+                                              threshold=threshold,
+                                              activation=last_activation)
+        if last_activation == "softmax":
+            return np.array(large_image), mask_image[0]
+        elif last_activation == "sigmoid":
+            return np.array(large_image), mask_image[0]
+
 
     else:
         raise Exception("mode must be \"simple_crop\" or \"center\" or \"max_confidence\"")
@@ -407,17 +448,30 @@ def get_random_crop_area(image_size, out_size):
     ymax = ymin + out_size[1]
     return (xmin, ymin, xmax, ymax)
 
-def convert_y_to_image_array(y, label, threshold=0.5):
+def convert_y_to_image_array(y, label, threshold=0.5, activation="softmax"):
     out_img = []
     for i in range(y.shape[0]):
-        out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
-        under_threshold = y[i,:,:,:].max(2) < threshold
-        y[i,under_threshold,0] = 1.0
-        max_category = y[i,:,:,:].argmax(2)
-        for j in range(label.n_labels):
-            out_img0[max_category==j] = label.color[j,:]
-        out_img.append(out_img0)
+        if activation == "softmax":
+            out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
+            under_threshold = y[i,:,:,:].max(2) < threshold
+            y[i,under_threshold,0] = 1.0
+            max_category = y[i,:,:,:].argmax(2)
+            for j in range(label.n_labels):
+                out_img0[max_category==j] = label.color[j,:]
+            out_img.append(out_img0)
+        elif activation == "sigmoid":
+            tmp = []
+            for j in range(label.n_labels):
+                out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
+                tar_idx = y[i,:,:,j] > threshold
+                out_img0[tar_idx,:] = label.color[j,:]
+                tmp.append(out_img0)
+            out_img.append(tmp)
+        else:
+            print("activation is " + activation)
+            raise Exception("activation must be 'softmax' or 'sigmoid'")
     return out_img
+
 
 def make_pascal_voc_label_csv():
     VOC_COLORMAP = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],

@@ -8,15 +8,16 @@ import matplotlib.pyplot as plt
 import glob
 matplotlib.use('Agg')
 
-out_dir = "../test2"
-traindata_dir = '../train_data'
+out_dir = "./test1"
+traindata_dir = '../../data/train_data'
 batch_size=8
-n_epochs=3000
+n_epochs=1000
+output_activation="sigmoid"
 
 deeplabv3plus_srcdir="./src"
 sys.path.append(deeplabv3plus_srcdir)
 
-gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0", allow_growth=True)
+gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=False)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
@@ -28,7 +29,7 @@ from label import Label
 
 os.makedirs(out_dir, exist_ok=True)
 
-train_x_paths = glob.glob(os.path.join(traindata_dir,'*.jpg'))
+train_x_paths = glob.glob(os.path.join(traindata_dir,'*.png'))
 train_x_paths.sort()
 image_names = [os.path.basename(train_x_paths[i]).split('.')[0] for i in range(len(train_x_paths))]
 train_y_paths=[]
@@ -39,7 +40,7 @@ for i, image_name in enumerate(image_names):
     else:
         train_y_paths.append(None)
 
-label_file_path = os.path.join(traindata_dir, 'label_list.csv')
+label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
 image_size = (512,512)
 
@@ -47,7 +48,12 @@ encoder = keras.applications.Xception(input_shape=(512,512,3), weights="imagenet
 preprocess = keras.applications.xception.preprocess_input
 layer_name_to_decoder = "block3_sepconv2_bn"
 encoder_end_layer_name = "block13_sepconv2_bn"
-model = deeplab_v3plus_transfer_os16(label.n_labels, encoder, layer_name_to_decoder, encoder_end_layer_name, freeze_encoder=False)
+model = deeplab_v3plus_transfer_os16(label.n_labels,
+                                     encoder,
+                                     layer_name_to_decoder,
+                                     encoder_end_layer_name,
+                                     freeze_encoder=False,
+                                     output_activation=output_activation)
 model.summary()
 
 
@@ -62,7 +68,7 @@ train_data_gen = DataGenerator(train_x_paths,
                                shuffle=True,
                                resize_or_crop="crop",
                                data_type="polygon")
-                               
+
 valid_data_gen = DataGenerator(train_x_paths,
                                train_y_paths,
                                image_size,
@@ -74,14 +80,16 @@ valid_data_gen = DataGenerator(train_x_paths,
                                resize_or_crop="crop",
                                data_type="polygon")
 
-
-loss_function = tf.keras.losses.categorical_crossentropy
+if output_activation == "softmax":
+    loss_function = tf.keras.losses.categorical_crossentropy
+elif output_activation == "sigmoid":
+    loss_function = tf.keras.losses.MSE
 opt = tf.keras.optimizers.Adam()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
 filepath = os.path.join(out_dir,'best_model.h5')
 cp_cb = keras.callbacks.ModelCheckpoint(filepath,
-                                        monitor='val_IoU',
+                                        monitor='IoU',
                                         #monitor='IoU',
                                         verbose=1,
                                         save_best_only=True,
@@ -92,7 +100,7 @@ cp_cb = keras.callbacks.ModelCheckpoint(filepath,
 hist = model.fit_generator(train_data_gen,
                            epochs=n_epochs,
                            steps_per_epoch=len(train_data_gen),
-                           validation_data=valid_data_gen,
+                           #validation_data=valid_data_gen,
                            #validation_steps=len(valid_data_gen),
                            #shuffle = False,
                            workers=8,
@@ -103,14 +111,14 @@ plt.figure(figsize=(20,10))
 
 plt.subplot(1,2,1)
 plt.plot(hist.history["loss"], label="loss")
-plt.plot(hist.history["val_loss"], label="val_loss")
+#plt.plot(hist.history["val_loss"], label="val_loss")
 plt.yscale("log")
 plt.legend()
 plt.grid()
 
 plt.subplot(1,2,2)
 plt.plot(hist.history["IoU"], label="IoU")
-plt.plot(hist.history["val_IoU"], label="val_IoU")
+#plt.plot(hist.history["val_IoU"], label="val_IoU")
 plt.legend()
 plt.grid()
 plt.savefig(os.path.join(out_dir,'losscurve.png'))
