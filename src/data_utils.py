@@ -54,7 +54,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         start_index = np.array(start_index)
 
         print("predicting")
-        y = model.predict(preprocess(x), batch_size=8)
+        y = model.predict(preprocess(x), batch_size=batch_size)
 
         print("converting y to image array")
         croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
@@ -108,7 +108,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         start_index = np.array(start_index)
 
         print("predicting")
-        y = model.predict(preprocess(x), batch_size=8)
+        y = model.predict(preprocess(x), batch_size=batch_size)
 
         print("converting y to image array")
         croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
@@ -166,7 +166,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         start_index = np.array(start_index)
 
         print("predicting")
-        y = model.predict(preprocess(x), batch_size=8)
+        y = model.predict(preprocess(x), batch_size=batch_size)
 
         print("merging image")
         #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
