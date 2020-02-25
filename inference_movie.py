@@ -12,12 +12,12 @@ model_dir = "./test1"
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/mov'
 
-valid_names = ["mov.mp4"]
+valid_names = ["ペーパードレーン(4-09列)_2019-10-28.mp4"]
 
 deeplabv3plus_dir="./src"
 sys.path.append(deeplabv3plus_dir)
 
-gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0", allow_growth=True)
+gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=True)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
