@@ -2,6 +2,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 import pandas as pd
 import json
+import h5py
+import numba
 
 def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5, batch_size=8):
     """inference for large image.
@@ -54,7 +56,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         print("predicting")
         y = model.predict(preprocess(x), batch_size=batch_size)
 
-        print("converting y to PIL image")
+        print("converting y to image array")
         croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
 
         print("merging image")
@@ -108,7 +110,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         print("predicting")
         y = model.predict(preprocess(x), batch_size=batch_size)
 
-        print("converting y to PIL image")
+        print("converting y to image array")
         croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
 
         print("merging image")
@@ -184,7 +186,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
             raise Exception("SOMTING WRONG")
         mask = mask / mask_count
 
-        print("converting y to PIL image")
+        print("converting y to image array")
 
         mask_image = convert_y_to_image_array(mask[np.newaxis,:,:,:],
                                               label,
@@ -282,7 +284,7 @@ def make_xy_from_data_paths(x_paths,
             crop_areas.append(crop_area)
         else:
             raise Exception("resize_or_crop must be 'resize' or 'crop'.")
-        image = np.array(image, np.uint8)
+        image = np.array(image, np.uint8)[:,:,0:3]
         x.append(image)
     x = np.array(x)
 
@@ -291,6 +293,10 @@ def make_xy_from_data_paths(x_paths,
 
     y = []
     for i, y_path in enumerate(y_paths):
+        if y_path is None:
+            y.append(np.zeros((*image_size[::-1], label.n_labels),np.int32))
+            continue
+
         if resize_or_crop == "resize":
             if data_type == "image":
                 image = Image.open(y_path)
@@ -368,7 +374,7 @@ def make_y_from_poly_json_path(data_path,
         images = []
         draws  = []
         for i in range(label.n_labels):
-            if i == 0: #背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
+            if (i == 0) and (label.name[0]=="background") : #背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
                 images.append(Image.new(mode='1', size=org_image_size, color=True))
             else:
                 images.append(Image.new(mode='1', size=org_image_size, color=False))
@@ -377,13 +383,12 @@ def make_y_from_poly_json_path(data_path,
         for i in range(n_poly):
             label_name = poly_json['shapes'][i]['label']
             label_num = label.name.index(label_name)
-            if label_num == 0: #背景のポリゴンは作成していないはずなので，何も通らないはず．
-                pass
-            else:
-                poly = poly_json['shapes'][i]['points']
-                poly = tuple(map(tuple, poly))
-                draws[label_num].polygon(poly, fill=True)
-                #背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
+
+            poly = poly_json['shapes'][i]['points']
+            poly = tuple(map(tuple, poly))
+            draws[label_num].polygon(poly, fill=True)
+            #背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
+            if label.name[0] == "background":
                 draws[0].polygon(poly, fill=False)
 
         for i in range(label.n_labels):
@@ -472,6 +477,20 @@ def convert_y_to_image_array(y, label, threshold=0.5, activation="softmax"):
             raise Exception("activation must be 'softmax' or 'sigmoid'")
     return out_img
 
+def save_inference_results(fpath, x, pred, last_activation, y="no_data"):
+    with h5py.File(fpath,"w") as f:
+        f.create_dataset("x", data=x)
+        f.create_dataset("y", data=y)
+        f.create_dataset("pred", data=pred)
+        f.create_dataset("last_activation", data=last_activation)
+
+def load_inference_results(fpath):
+    with h5py.File(fpath, "r") as f:
+        x = f["x"][()]
+        y = f["y"][()]
+        pred = f["pred"][()]
+        last_activation = f["last_activation"][()]
+    return x, y, pred, last_activation
 
 def make_pascal_voc_label_csv():
     VOC_COLORMAP = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],

@@ -8,17 +8,18 @@ import matplotlib.pyplot as plt
 import glob
 matplotlib.use('Agg')
 
-out_dir = "./OCE"
+model_dir = "./test3"
+out_dir = "./test4"
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/train_data_cut'
 batch_size=8
-n_epochs=3000
+n_epochs=1500
 output_activation="sigmoid"
 
 deeplabv3plus_srcdir="./src"
 sys.path.append(deeplabv3plus_srcdir)
 
-gpu_options = tf.compat.v1.GPUOptions(visible_device_list="2", allow_growth=True)
+gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=True)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
@@ -28,6 +29,7 @@ from data_gen import DataGenerator
 from metrics import IoU
 from label import Label
 from loss import make_overwrap_crossentropy
+from tensorflow.keras.utils import get_custom_objects
 
 os.makedirs(out_dir, exist_ok=True)
 
@@ -56,19 +58,12 @@ for i, image_name in enumerate(image_names):
 
 label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
+get_custom_objects()["IoU"] = IoU
+get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
 image_size = (512,512)
-
-encoder = keras.applications.Xception(input_shape=(512,512,3), weights="imagenet", include_top=False)
-preprocess = keras.applications.xception.preprocess_input
-layer_name_to_decoder = "block3_sepconv2_bn"
-encoder_end_layer_name = "block13_sepconv2_bn"
-model = deeplab_v3plus_transfer_os16(label.n_labels,
-                                     encoder,
-                                     layer_name_to_decoder,
-                                     encoder_end_layer_name,
-                                     freeze_encoder=False,
-                                     output_activation=output_activation)
+model = keras.models.load_model(os.path.join(model_dir,'best_model.h5'))
 model.summary()
+preprocess = keras.applications.xception.preprocess_input
 
 
 
@@ -99,11 +94,7 @@ if output_activation == "softmax":
 elif output_activation == "sigmoid":
     loss_function = make_overwrap_crossentropy(label.n_labels)
     #loss_function = tf.keras.losses.MSE
-    #loss_function = tf.keras.losses.MAE
-    #loss_function = tf.keras.losses.SquaredHinge()
-
-#opt = tf.keras.optimizers.Adam()
-opt = tf.keras.optimizers.Nadam()
+opt = tf.keras.optimizers.Adam()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
 filepath = os.path.join(out_dir,'best_model.h5')
@@ -126,6 +117,11 @@ hist = model.fit_generator(train_data_gen,
                            use_multiprocessing=True,
                            callbacks=[cp_cb])
 
+                           
+                           
+                           
+                           
+                           
 plt.figure(figsize=(20,10))
 
 plt.subplot(1,2,1)
