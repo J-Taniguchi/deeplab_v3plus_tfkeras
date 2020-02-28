@@ -5,7 +5,7 @@ import json
 import h5py
 import numba
 
-def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5, batch_size=8):
+def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5, batch_size=8):
     """inference for large image.
         If mode is "simple_crop", simply crop the large image to the model size.
         If mode is "center", only using the center of the prediction.
@@ -13,7 +13,7 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
         and, take maximum index as mask.
 
     Args:
-        img_path (path): path for a large image for inference.
+        in_image (path or np.array): path for a large image for inference.
         model (Model): trained model
         preprocess (function): preprocessor for the model.
         label (Label):
@@ -30,8 +30,15 @@ def inference_large_img(img_path, model, preprocess, label, mode, threshold=0.5,
     image_size_half = (image_size[0]//2, image_size[1]//2)
     image_size_quarter = (image_size[0]//4, image_size[1]//4)
 
-    large_image = Image.open(img_path)
-    w_org, h_org = large_image.size
+    if type(in_image) is np.ndarray:
+        large_image = in_image
+        h_org = large_image.shape[0]
+        w_org = large_image.shape[1]
+    else:
+        large_image = Image.open(in_image)
+        w_org, h_org = large_image.size
+
+
 
     if mode == "simple_crop":
         nx = np.int(np.ceil(w_org / image_size[0]))
