@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw
 import pandas as pd
 import json
 import h5py
+import copy
 import numba
 
 def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5, batch_size=8):

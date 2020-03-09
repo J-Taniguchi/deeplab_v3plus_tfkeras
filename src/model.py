@@ -5,10 +5,10 @@ import numpy as np
 
 def deeplab_v3plus(image_size, n_categories):
     if np.mod(image_size[0],32) != 0 or np.mod(image_size[1],32) != 0:
-        raise exception("image_size must be multiples of 32")
+        raise Exception("image_size must be multiples of 32")
 
     if min(image_size) < 320:
-        raise exception("minimum(image_size) must be larger or equal than 320")
+        raise Exception("minimum(image_size) must be larger or equal than 320")
 
     #xm means x_main. center flow of the fig. 4.
     #xs means x_side. side flow of the fig. 4.
@@ -154,7 +154,7 @@ def deeplab_v3plus_transfer_os16(n_categories,
 def cal_dilation_rates(im_size):
     max_atrous_rate = im_size//2 - 1
     if max_atrous_rate <=3:
-        raise exception("minimum(image_size) is too small")
+        raise Exception("minimum(image_size) is too small")
     else:
         a = np.linspace(0,32//3,4)
         return np.ceil(a).astype(np.int)[1:]
@@ -180,3 +180,4 @@ def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation
 
 def Resize_Layer(inputs, out_tensor_hw, name="resize"): # resizes input tensor wrt. ref_tensor
     return tf.image.resize_nearest_neighbor(inputs, out_tensor_hw, name=name)
+    #return tf.image.resize(inputs, out_tensor_hw, name=name)

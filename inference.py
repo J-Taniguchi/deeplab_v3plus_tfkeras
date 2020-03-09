@@ -6,7 +6,7 @@ import os
 import sys
 from tqdm import tqdm
 
-model_dir = "./OCE"
+model_dir = "../deeplab_out/add_no5data"
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/'
 
@@ -17,7 +17,7 @@ sys.path.append(deeplabv3plus_dir)
 image_size = (512,512)
 
 gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=False)
-config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
+config = tf.compat.v1.ConfigProto(gpu_options=gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
 from data_utils import make_xy_from_data_paths, convert_y_to_image_array, inference_large_img, save_inference_results

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import glob
 matplotlib.use('Agg')
 
-out_dir = "./OCE"
+out_dir = "../deeplab_out/add_no5data"
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/train_data_cut'
 batch_size=8
@@ -18,7 +18,7 @@ output_activation="sigmoid"
 deeplabv3plus_srcdir="./src"
 sys.path.append(deeplabv3plus_srcdir)
 
-gpu_options = tf.compat.v1.GPUOptions(visible_device_list="2", allow_growth=True)
+gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=True)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
@@ -104,6 +104,7 @@ elif output_activation == "sigmoid":
 
 #opt = tf.keras.optimizers.Adam()
 opt = tf.keras.optimizers.Nadam()
+#opt = tf.keras.optimizers.SGD()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
 filepath = os.path.join(out_dir,'best_model.h5')

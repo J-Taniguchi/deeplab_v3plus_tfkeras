@@ -17,7 +17,7 @@ from data_utils import load_inference_results, convert_y_to_image_array
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/'
 valid_names = ["valid_4-09", "valid_4-10"]
-model_dir = "./OCE"
+model_dir = "../deeplab_out/add_no5data"
 out_dir = os.path.join(model_dir,"figure")
 
 label_file_path = os.path.join(traindata_dir, 'label.csv')
