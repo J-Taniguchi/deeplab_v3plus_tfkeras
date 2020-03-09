@@ -11,6 +11,7 @@ matplotlib.use('Agg')
 out_dir = "../deeplab_out/add_no5data"
 traindata_dir = '../../data/train_data'
 validdata_dir = '../../data/train_data_cut'
+#n_gpu = 4
 batch_size=8
 n_epochs=3000
 output_activation="sigmoid"
@@ -18,9 +19,12 @@ output_activation="sigmoid"
 deeplabv3plus_srcdir="./src"
 sys.path.append(deeplabv3plus_srcdir)
 
+#os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=True)
+#gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0,1,2,3", allow_growth=True)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
+#tf.compat.v1.enable_eager_execution()
 
 
 from model import deeplab_v3plus_transfer_os16
@@ -58,18 +62,25 @@ label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
 image_size = (512,512)
 
-encoder = keras.applications.Xception(input_shape=(512,512,3), weights="imagenet", include_top=False)
+encoder = keras.applications.Xception(
+    input_shape=(512,512,3),
+    weights="imagenet",
+    include_top=False)
 preprocess = keras.applications.xception.preprocess_input
 layer_name_to_decoder = "block3_sepconv2_bn"
 encoder_end_layer_name = "block13_sepconv2_bn"
-model = deeplab_v3plus_transfer_os16(label.n_labels,
-                                     encoder,
-                                     layer_name_to_decoder,
-                                     encoder_end_layer_name,
-                                     freeze_encoder=False,
-                                     output_activation=output_activation)
+
+with tf.device("/cpu:0"):
+    model = deeplab_v3plus_transfer_os16(
+        label.n_labels,
+        encoder,
+        layer_name_to_decoder,
+        encoder_end_layer_name,
+        freeze_encoder=False,
+        output_activation=output_activation)
 model.summary()
 
+#multi_gpu_model = keras.utils.multi_gpu_model(model, gpus=n_gpu)
 
 
 train_data_gen = DataGenerator(train_x_paths,
@@ -108,24 +119,26 @@ opt = tf.keras.optimizers.Nadam()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
 filepath = os.path.join(out_dir,'best_model.h5')
-cp_cb = keras.callbacks.ModelCheckpoint(filepath,
-                                        #monitor='IoU',
-                                        monitor='val_IoU',
-                                        verbose=1,
-                                        save_best_only=True,
-                                        save_weights_only=False,
-                                        mode='max')
+cp_cb = keras.callbacks.ModelCheckpoint(
+    filepath,
+    #monitor='IoU',
+    monitor='val_IoU',
+    verbose=1,
+    save_best_only=True,
+    save_weights_only=False,
+    mode='max')
 
 
-hist = model.fit_generator(train_data_gen,
-                           epochs=n_epochs,
-                           steps_per_epoch=len(train_data_gen),
-                           validation_data=valid_data_gen,
-                           validation_steps=len(valid_data_gen),
-                           #shuffle = False,
-                           workers=8,
-                           use_multiprocessing=True,
-                           callbacks=[cp_cb])
+hist = model.fit_generator(
+    train_data_gen,
+    epochs=n_epochs,
+    steps_per_epoch=len(train_data_gen),
+    validation_data=valid_data_gen,
+    validation_steps=len(valid_data_gen),
+    #shuffle = False,
+    workers=8,
+    use_multiprocessing=True,
+    callbacks=[cp_cb])
 
 plt.figure(figsize=(20,10))
 

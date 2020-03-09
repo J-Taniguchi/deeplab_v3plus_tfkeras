@@ -101,7 +101,8 @@ def deeplab_v3plus_transfer_os16(n_categories,
                                  layer_name_to_decoder,
                                  encoder_end_layer_name,
                                  freeze_encoder=True,
-                                 output_activation='softmax'):
+                                 output_activation='softmax',
+                                 batch_renorm=False):
 
     layer_dict = dict([(layer.name, layer) for layer in encoder.layers])
     inputs = encoder.input
@@ -116,28 +117,28 @@ def deeplab_v3plus_transfer_os16(n_categories,
     dilation_rates = cal_dilation_rates(min_feature_size)
 
     #ASPP
-    aspp1 = Conv_BN(xm, 256, filter=1, prefix="aspp1", suffix="1", strides=1, dilation_rate=1)
-    aspp2 = SepConv_BN(xm, 256, prefix="aspp2", suffix="1", strides=1, dilation_rate=dilation_rates[0])
-    aspp3 = SepConv_BN(xm, 256, prefix="aspp3", suffix="1", strides=1, dilation_rate=dilation_rates[1])
-    aspp4 = SepConv_BN(xm, 256, prefix="aspp4", suffix="1", strides=1, dilation_rate=dilation_rates[2])
+    aspp1 = Conv_BN(xm, 256, filter=1, prefix="aspp1", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
+    aspp2 = SepConv_BN(xm, 256, prefix="aspp2", suffix="1", strides=1, dilation_rate=dilation_rates[0], batch_renorm=batch_renorm)
+    aspp3 = SepConv_BN(xm, 256, prefix="aspp3", suffix="1", strides=1, dilation_rate=dilation_rates[1], batch_renorm=batch_renorm)
+    aspp4 = SepConv_BN(xm, 256, prefix="aspp4", suffix="1", strides=1, dilation_rate=dilation_rates[2], batch_renorm=batch_renorm)
 
     aspp5 = keras.backend.mean(xm, axis=[1,2], keepdims=True)
-    aspp5 = Conv_BN(aspp5, 256, filter=1, prefix="aspp5", suffix="1", strides=1, dilation_rate=1)
+    aspp5 = Conv_BN(aspp5, 256, filter=1, prefix="aspp5", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
     aspp5 = layers.UpSampling2D(feature_size, name="aspp5_upsampling")(aspp5)
 
     ASPP = layers.concatenate([aspp1,aspp2,aspp3,aspp4,aspp5], name="ASPP")
-    ASPP = Conv_BN(ASPP, 256, filter=1, prefix="ASPP", suffix="1", strides=1, dilation_rate=1)
+    ASPP = Conv_BN(ASPP, 256, filter=1, prefix="ASPP", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
     ASPP = layers.UpSampling2D(4, name="ASPP_upsample_4")(ASPP)
 
     #decoder
-    x_dec = Conv_BN(x_dec, 48, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1)
+    x_dec = Conv_BN(x_dec, 48, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
     print("in decoder, layer from encoder is resized from " + str(x_dec.shape) + " to " + str(ASPP.shape))
     x_dec = Resize_Layer(x_dec, ASPP.shape[1:3], name="dec1_resize")
     x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
-    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1)
-    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="3", strides=1, dilation_rate=1)
+    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
+    x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="3", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
     x_dec = layers.UpSampling2D(4, name="dec_upsample_2")(x_dec)
-    x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1)
+    x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
 
     #x_dec = SepConv_BN(x_dec, n_categories, prefix="dec2", suffix="1", strides=1, dilation_rate=1, last_activation=False)
     #x_dec = layers.UpSampling2D(2, name="dec_upsample_3")(x_dec)
@@ -160,20 +161,20 @@ def cal_dilation_rates(im_size):
         return np.ceil(a).astype(np.int)[1:]
 
 
-def SepConv_BN(x, n_channels, prefix=" ", suffix=" ", strides=1, dilation_rate=1, last_activation=True):
+def SepConv_BN(x, n_channels, prefix=" ", suffix=" ", strides=1, dilation_rate=1, last_activation=True, batch_renorm=False):
     x = layers.DepthwiseConv2D((3,3), strides, dilation_rate=(dilation_rate,dilation_rate), padding="same", name=prefix+"_sc"+suffix)(x)
-    x = layers.BatchNormalization(name=prefix+"_sc-bn"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_sc-bn"+suffix, renorm=batch_renorm)(x)
     x = layers.Activation(tf.nn.relu, name=prefix+"_sc-act"+suffix)(x)
     x = layers.Conv2D(n_channels,(1,1), padding="same", name=prefix+"_cv"+suffix)(x)
-    x = layers.BatchNormalization(name=prefix+"_cv-bn"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_cv-bn"+suffix, renorm=batch_renorm)(x)
     if last_activation is True:
         x = layers.Activation(tf.nn.relu, name=prefix+"_cv-act"+suffix)(x)
     return x
 
 
-def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation_rate=1, last_activation=True):
+def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation_rate=1, last_activation=True, batch_renorm=False):
     x = layers.Conv2D(n_channels, filter, strides, dilation_rate=(dilation_rate,dilation_rate), padding="same", name=prefix+"_cv"+suffix)(x)
-    x = layers.BatchNormalization(name=prefix+"_bn"+suffix)(x)
+    x = layers.BatchNormalization(name=prefix+"_bn"+suffix, renorm=batch_renorm)(x)
     if last_activation is True:
         x = layers.Activation(tf.nn.relu, name=prefix+"_act"+suffix)(x)
     return x
