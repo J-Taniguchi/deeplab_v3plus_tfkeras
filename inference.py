@@ -24,12 +24,16 @@ from data_utils import make_xy_from_data_paths, convert_y_to_image_array, infere
 from data_gen import DataGenerator
 from label import Label
 from metrics import IoU
-from loss import make_overwrap_crossentropy
+#from loss import make_overwrap_crossentropy
+from loss import make_weighted_overwrap_crossentropy
 from tensorflow.keras.utils import get_custom_objects
 label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
 get_custom_objects()["IoU"] = IoU
-get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
+#get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
+weights = [[0.996, 0.004], [0.996, 0.004]]
+get_custom_objects()["weighted_overwrap_crossentropy"] = \
+    make_weighted_overwrap_crossentropy(label.n_labels, weights)
 
 model = keras.models.load_model(os.path.join(model_dir,'best_model.h5'))
 preprocess = keras.applications.xception.preprocess_input
