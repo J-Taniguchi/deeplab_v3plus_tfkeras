@@ -31,7 +31,7 @@ from model import deeplab_v3plus_transfer_os16
 from data_gen import DataGenerator
 from metrics import IoU
 from label import Label
-from loss import make_overwrap_crossentropy
+from loss import make_weighted_overwrap_crossentropy
 
 os.makedirs(out_dir, exist_ok=True)
 
@@ -77,7 +77,8 @@ with tf.device("/cpu:0"):
         layer_name_to_decoder,
         encoder_end_layer_name,
         freeze_encoder=False,
-        output_activation=output_activation)
+        output_activation=output_activation,
+        batch_renorm=True)
 model.summary()
 
 #multi_gpu_model = keras.utils.multi_gpu_model(model, gpus=n_gpu)
@@ -108,13 +109,16 @@ valid_data_gen = DataGenerator(valid_x_paths,
 if output_activation == "softmax":
     loss_function = tf.keras.losses.categorical_crossentropy
 elif output_activation == "sigmoid":
-    loss_function = make_overwrap_crossentropy(label.n_labels)
+    #loss_function = make_overwrap_crossentropy(label.n_labels)
+    #loss_function = make_overwrap_focalloss(label.n_labels)
+    weights = [[0.996, 0.004], [0.996, 0.004]]
+    loss_function = make_weighted_overwrap_crossentropy(label.n_labels, weights)
     #loss_function = tf.keras.losses.MSE
     #loss_function = tf.keras.losses.MAE
     #loss_function = tf.keras.losses.SquaredHinge()
 
 #opt = tf.keras.optimizers.Adam()
-opt = tf.keras.optimizers.Nadam()
+opt = tf.keras.optimizers.Nadam(clipvalue=0.5)
 #opt = tf.keras.optimizers.SGD()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
