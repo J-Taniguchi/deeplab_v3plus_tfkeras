@@ -7,11 +7,11 @@ def augmentor(p, image_size):
         #RandomResizedCrop(*image_size, scale=(0.5,2.0), p=0.5),
         #RandomRotate90(p=0.5),
         #Rotate(p=0.5),
-        #ShiftScaleRotate(rotate_limit=180, scale_limit=(-0.5, 1.1), shift_limit=0.0, p=1.0)
-        OneOf([
-            ShiftScaleRotate(rotate_limit=10, scale_limit=0.2, shift_limit=0.0, interpolation=0, p=1.0),
-            ShiftScaleRotate(rotate_limit=10, scale_limit=0.2, shift_limit=0.0, interpolation=1, p=1.0),
-            ], p=0.8),
+        ShiftScaleRotate(rotate_limit=45, scale_limit=0.2, shift_limit=0.1, border_mode=0, p=1.0),
+        #OneOf([
+            #ShiftScaleRotate(rotate_limit=45, scale_limit=0.2, shift_limit=0.1, interpolation=0, p=1.0),
+            #ShiftScaleRotate(rotate_limit=45, scale_limit=0.2, shift_limit=0.1, interpolation=1, p=1.0),
+            #], p=0.8),
         Flip(p=0.5),
         #Transpose(p=0.5),
         #Downscale(scale_min=0.25, scale_max=0.8, p=0.3),
@@ -19,6 +19,7 @@ def augmentor(p, image_size):
             IAAAdditiveGaussianNoise(p=1.0),
             GaussNoise(p=1.0),
             JpegCompression(p=1.0,quality_lower=80, quality_upper=100),
+            Downscale(scale_min=0.9, scale_max=0.99, p=1.0)
         ], p=0.5),
         #ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.5),
         #OneOf([
