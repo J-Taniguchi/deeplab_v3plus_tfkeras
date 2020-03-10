@@ -4,36 +4,42 @@ import numpy as np
 from glob import glob
 import os
 import sys
+from deeplab_v3plus_tfkeras.data_utils import make_xy_from_data_paths, convert_y_to_image_array, inference_large_img, save_inference_results
+from deeplab_v3plus_tfkeras.data_gen import DataGenerator
+from deeplab_v3plus_tfkeras.label import Label
+from deeplab_v3plus_tfkeras.metrics import IoU
+#from loss import make_overwrap_crossentropy
+#from loss import make_weighted_overwrap_crossentropy
+from deeplab_v3plus_tfkeras.loss import make_overwrap_focalloss
+from tensorflow.keras.utils import get_custom_objects
 from tqdm import tqdm
 
-model_dir = "../deeplab_out/add_no5data"
-traindata_dir = '../../data/train_data'
-validdata_dir = '../../data/'
+#model_dir = "../deeplab_out/add_no5data_OFL_decay"
+#traindata_dir = '../../data/train_data'
+#validdata_dir = '../../data/'
+model_dir = sys.argv[1]
+traindata_dir = sys.argv[2]
+validdata_dir = sys.argv[3]
 
 valid_names = ["valid_4-09", "valid_4-10"]
 
-deeplabv3plus_dir="./src"
-sys.path.append(deeplabv3plus_dir)
 image_size = (512,512)
 
 gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=False)
 config = tf.compat.v1.ConfigProto(gpu_options=gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
 
-from data_utils import make_xy_from_data_paths, convert_y_to_image_array, inference_large_img, save_inference_results
-from data_gen import DataGenerator
-from label import Label
-from metrics import IoU
-#from loss import make_overwrap_crossentropy
-from loss import make_weighted_overwrap_crossentropy
-from tensorflow.keras.utils import get_custom_objects
+
 label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
 get_custom_objects()["IoU"] = IoU
 #get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
-weights = [[0.996, 0.004], [0.996, 0.004]]
-get_custom_objects()["weighted_overwrap_crossentropy"] = \
-    make_weighted_overwrap_crossentropy(label.n_labels, weights)
+#weights = [[0.996, 0.004], [0.996, 0.004]]
+#get_custom_objects()["weighted_overwrap_crossentropy"] = \
+#    make_weighted_overwrap_crossentropy(label.n_labels, weights)
+
+get_custom_objects()["overwrap_focalloss"] = \
+    make_overwrap_focalloss(label.n_labels)
 
 model = keras.models.load_model(os.path.join(model_dir,'best_model.h5'))
 preprocess = keras.applications.xception.preprocess_input

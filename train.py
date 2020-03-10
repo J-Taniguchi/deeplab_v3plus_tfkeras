@@ -6,32 +6,29 @@ import sys
 import matplotlib
 import matplotlib.pyplot as plt
 import glob
+from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
+from deeplab_v3plus_tfkeras.data_gen import DataGenerator
+from deeplab_v3plus_tfkeras.metrics import IoU
+from deeplab_v3plus_tfkeras.label import Label
+from deeplab_v3plus_tfkeras.loss import make_overwrap_focalloss
 matplotlib.use('Agg')
 
-out_dir = "../deeplab_out/add_no5data"
-traindata_dir = '../../data/train_data'
-validdata_dir = '../../data/train_data_cut'
+out_dir = sys.argv[1]
+traindata_dir = sys.argv[2]
+validdata_dir = sys.argv[3]
 #n_gpu = 4
 batch_size=8
 n_epochs=3000
 output_activation="sigmoid"
 
-deeplabv3plus_srcdir="./src"
-sys.path.append(deeplabv3plus_srcdir)
-
 #os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+#tf.compat.v1.enable_eager_execution()
+
 gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=True)
 #gpu_options = tf.compat.v1.GPUOptions(visible_device_list="0,1,2,3", allow_growth=True)
 config = tf.compat.v1.ConfigProto(gpu_options = gpu_options)
 tf.compat.v1.enable_eager_execution(config=config)
-#tf.compat.v1.enable_eager_execution()
 
-
-from model import deeplab_v3plus_transfer_os16
-from data_gen import DataGenerator
-from metrics import IoU
-from label import Label
-from loss import make_weighted_overwrap_crossentropy
 
 os.makedirs(out_dir, exist_ok=True)
 
@@ -70,15 +67,14 @@ preprocess = keras.applications.xception.preprocess_input
 layer_name_to_decoder = "block3_sepconv2_bn"
 encoder_end_layer_name = "block13_sepconv2_bn"
 
-with tf.device("/cpu:0"):
-    model = deeplab_v3plus_transfer_os16(
-        label.n_labels,
-        encoder,
-        layer_name_to_decoder,
-        encoder_end_layer_name,
-        freeze_encoder=False,
-        output_activation=output_activation,
-        batch_renorm=True)
+model = deeplab_v3plus_transfer_os16(
+    label.n_labels,
+    encoder,
+    layer_name_to_decoder,
+    encoder_end_layer_name,
+    freeze_encoder=False,
+    output_activation=output_activation,
+    batch_renorm=True)
 model.summary()
 
 #multi_gpu_model = keras.utils.multi_gpu_model(model, gpus=n_gpu)
@@ -110,15 +106,15 @@ if output_activation == "softmax":
     loss_function = tf.keras.losses.categorical_crossentropy
 elif output_activation == "sigmoid":
     #loss_function = make_overwrap_crossentropy(label.n_labels)
-    #loss_function = make_overwrap_focalloss(label.n_labels)
-    weights = [[0.996, 0.004], [0.996, 0.004]]
-    loss_function = make_weighted_overwrap_crossentropy(label.n_labels, weights)
+    loss_function = make_overwrap_focalloss(label.n_labels)
+    #weights = [[0.996, 0.004], [0.996, 0.004]]
+    #loss_function = make_weighted_overwrap_crossentropy(label.n_labels, weights)
     #loss_function = tf.keras.losses.MSE
     #loss_function = tf.keras.losses.MAE
     #loss_function = tf.keras.losses.SquaredHinge()
 
 #opt = tf.keras.optimizers.Adam()
-opt = tf.keras.optimizers.Nadam(clipvalue=0.5)
+opt = tf.keras.optimizers.Nadam(decay=1e-4)
 #opt = tf.keras.optimizers.SGD()
 model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 

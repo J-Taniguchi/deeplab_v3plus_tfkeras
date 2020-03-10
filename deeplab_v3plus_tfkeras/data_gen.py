@@ -1,8 +1,8 @@
 import numpy as np
 import tensorflow.keras as keras
-from data_utils import make_xy_from_data_paths
-from data_augment import data_augment
-from label import Label
+from .data_utils import make_xy_from_data_paths
+from .data_augment import data_augment
+from .label import Label
 
 class DataGenerator(keras.utils.Sequence):
     def __init__(self,

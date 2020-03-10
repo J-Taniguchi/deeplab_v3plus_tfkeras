@@ -7,17 +7,20 @@ import matplotlib.pyplot as plt
 import matplotlib
 from PIL import Image
 import cv2
-deeplabv3plus_dir="./src"
-sys.path.append(deeplabv3plus_dir)
-from label import Label
+from deeplab_v3plus_tfkeras.label import Label
+from deeplab_v3plus_tfkeras.data_utils import load_inference_results, convert_y_to_image_array
 import h5py
-from data_utils import load_inference_results, convert_y_to_image_array
+
+#model_dir = "../deeplab_out/add_no5data_OFL_decay"
+#traindata_dir = '../../data/train_data'
+#validdata_dir = '../../data/'
+model_dir = sys.argv[1]
+traindata_dir = sys.argv[2]
+validdata_dir = sys.argv[3]
+#valid_names = ["valid_4-09", "valid_4-10"]
+valid_names = ["valid_4-09"]
 
 
-traindata_dir = '../../data/train_data'
-validdata_dir = '../../data/'
-valid_names = ["valid_4-09", "valid_4-10"]
-model_dir = "../deeplab_out/add_no5data"
 out_dir = os.path.join(model_dir,"figure")
 
 label_file_path = os.path.join(traindata_dir, 'label.csv')
