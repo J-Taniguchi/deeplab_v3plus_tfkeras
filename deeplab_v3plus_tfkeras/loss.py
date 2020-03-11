@@ -38,25 +38,32 @@ def make_overwrap_focalloss(n_labels, alphas, gammas):
 def make_focal_loss(alpha, gamma):
     def focal_loss(y_true, y_pred):
         """
-        calculate loss about center of the object.
         Args:
             y_true :
             y_pred :
         Return:
             float
         """
-        #y_true and y_pred are about center.
         pos_mask = tf.dtypes.cast(tf.math.equal(y_true, 1.0), tf.float32)
         neg_mask = tf.dtypes.cast(tf.math.less (y_true, 1.0), tf.float32)
 
-        pos_loss = ((    y_pred) ** gamma) * tf.math.log(tf.clip_by_value(    y_pred, 1e-4, 1.0))
-        neg_loss = ((1 - y_pred) ** gamma) * tf.math.log(tf.clip_by_value(1 - y_pred, 1e-4, 1.0))
+        pos_loss = ((1 - y_pred) ** gamma) * tf.math.log(tf.clip_by_value(    y_pred, 1e-4, 1.0))
+        neg_loss = ((    y_pred) ** gamma) * tf.math.log(tf.clip_by_value(1 - y_pred, 1e-4, 1.0))
 
         pos_loss = -1.0 * pos_loss * pos_mask * alpha
         neg_loss = -1.0 * neg_loss * neg_mask * (1 - alpha)
 
-        pos_loss = tf.math.reduce_sum(pos_loss)
-        neg_loss = tf.math.reduce_sum(neg_loss)
+        n_pos = tf.math.reduce_sum(pos_mask)
+        n_neg = tf.math.reduce_sum(neg_mask)
+
+        if n_pos.numpy() == 0:
+            pos_loss = 0.0
+        else:
+            pos_loss = tf.math.reduce_sum(pos_loss) / n_pos
+        if n_neg.numpy() == 0:
+            neg_loss = 0.0
+        else:
+            neg_loss = tf.math.reduce_sum(neg_loss) / n_neg
 
         return pos_loss + neg_loss
 

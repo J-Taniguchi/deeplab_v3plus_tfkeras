@@ -109,7 +109,7 @@ if output_activation == "softmax":
     loss_function = tf.keras.losses.categorical_crossentropy
 elif output_activation == "sigmoid":
     #loss_function = make_overwrap_crossentropy(label.n_labels)
-    alphas = [0.9, 0.9]
+    alphas = [0.25, 0.25]
     gammas = [2.0, 2.0]
     loss_function = make_overwrap_focalloss(label.n_labels, alphas, gammas)
     #weights = [[0.99, 0.01], [0.99, 0.01]]
