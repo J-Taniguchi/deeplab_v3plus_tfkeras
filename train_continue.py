@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.keras as keras
+from tensorflow.keras.utils import get_custom_objects
 import numpy as np
 import os
 import sys
@@ -8,20 +9,19 @@ import matplotlib.pyplot as plt
 import glob
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
 from deeplab_v3plus_tfkeras.data_gen import DataGenerator
-from deeplab_v3plus_tfkeras.metrics import make_IoU
+from deeplab_v3plus_tfkeras.metrics import IoU
 from deeplab_v3plus_tfkeras.label import Label
-#from deeplab_v3plus_tfkeras.loss import make_overwrap_crossentropy
+from deeplab_v3plus_tfkeras.loss import make_weighted_overwrap_crossentropy
 from deeplab_v3plus_tfkeras.loss import make_overwrap_focalloss
-#from deeplab_v3plus_tfkeras.loss import make_weighted_overwrap_crossentropy
-
 matplotlib.use('Agg')
 
-out_dir = sys.argv[1]
-traindata_dir = sys.argv[2]
-validdata_dir = sys.argv[3]
+model_dir = sys.argv[1]
+out_dir = sys.argv[2]
+traindata_dir = sys.argv[3]
+validdata_dir = sys.argv[4]
 #n_gpu = 4
 batch_size=14
-n_epochs=500
+n_epochs=5000
 output_activation="sigmoid"
 
 #os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -60,6 +60,11 @@ for i, image_name in enumerate(image_names):
 
 label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
+get_custom_objects()["IoU"] = IoU
+#get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
+weights = [[0.99, 0.01], [0.99, 0.01]]
+get_custom_objects()["weighted_overwrap_crossentropy"] = \
+    make_weighted_overwrap_crossentropy(label.n_labels, weights)
 image_size = (256,256)
 
 encoder = keras.applications.Xception(
@@ -70,14 +75,7 @@ preprocess = keras.applications.xception.preprocess_input
 layer_name_to_decoder = "block3_sepconv2_bn"
 encoder_end_layer_name = "block13_sepconv2_bn"
 
-model = deeplab_v3plus_transfer_os16(
-    label.n_labels,
-    encoder,
-    layer_name_to_decoder,
-    encoder_end_layer_name,
-    freeze_encoder=False,
-    output_activation=output_activation,
-    batch_renorm=True)
+model = keras.models.load_model(os.path.join(model_dir,'best_model.h5'))
 model.summary()
 
 #multi_gpu_model = keras.utils.multi_gpu_model(model, gpus=n_gpu)
@@ -109,9 +107,7 @@ if output_activation == "softmax":
     loss_function = tf.keras.losses.categorical_crossentropy
 elif output_activation == "sigmoid":
     #loss_function = make_overwrap_crossentropy(label.n_labels)
-    alphas = [0.9, 0.9]
-    gammas = [2.0, 2.0]
-    loss_function = make_overwrap_focalloss(label.n_labels, alphas, gammas)
+    loss_function = make_overwrap_focalloss(label.n_labels)
     #weights = [[0.99, 0.01], [0.99, 0.01]]
     #loss_function = make_weighted_overwrap_crossentropy(label.n_labels, weights)
     #loss_function = tf.keras.losses.MSE
@@ -119,14 +115,9 @@ elif output_activation == "sigmoid":
     #loss_function = tf.keras.losses.SquaredHinge()
 
 #opt = tf.keras.optimizers.Adam()
-opt = tf.keras.optimizers.Nadam()
+opt = tf.keras.optimizers.Nadam(decay=1e-4)
 #opt = tf.keras.optimizers.SGD()
-
-IoU = make_IoU(threshold=0.5)
-model.compile(optimizer=opt,
-              loss=loss_function,
-              metrics=[IoU],
-              run_eagerly=True)
+model.compile(optimizer=opt, loss=loss_function, metrics=[IoU])
 
 filepath = os.path.join(out_dir,'best_model.h5')
 cp_cb = keras.callbacks.ModelCheckpoint(
@@ -142,7 +133,7 @@ cp_cb = keras.callbacks.ModelCheckpoint(
 hist = model.fit_generator(
     train_data_gen,
     epochs=n_epochs,
-    steps_per_epoch=len(train_data_gen)*10,
+    steps_per_epoch=len(train_data_gen),
     validation_data=valid_data_gen,
     validation_steps=len(valid_data_gen),
     #shuffle = False,

@@ -44,12 +44,12 @@ class DataGenerator(keras.utils.Sequence):
         batch_x_paths = self.img_paths[tar_ind]
         batch_y_paths = self.seg_img_paths[tar_ind]
 
-        x,y = make_xy_from_data_paths(batch_x_paths,
-                                      batch_y_paths,
-                                      self.image_size,
-                                      self.label,
-                                      data_type=self.data_type,
-                                      resize_or_crop=self.resize_or_crop)
+        x, y = make_xy_from_data_paths(batch_x_paths,
+                                       batch_y_paths,
+                                       self.image_size,
+                                       self.label,
+                                       data_type=self.data_type,
+                                       resize_or_crop=self.resize_or_crop)
 
 
         if self.augmentation == True:

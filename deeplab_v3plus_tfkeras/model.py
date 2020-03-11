@@ -132,7 +132,7 @@ def deeplab_v3plus_transfer_os16(n_categories,
 
     #decoder
     x_dec = Conv_BN(x_dec, 48, filter=1, prefix="dec1", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
-    print("in decoder, layer from encoder is resized from " + str(x_dec.shape) + " to " + str(ASPP.shape))
+    print("in decoder, layer from encoder is resized from " + str(x_dec.shape[1:3]) + " to " + str(ASPP.shape[1:3]))
     x_dec = Resize_Layer(x_dec, ASPP.shape[1:3], name="dec1_resize")
     x_dec = layers.concatenate([x_dec, ASPP], name="dec_concat")
     x_dec = SepConv_BN(x_dec, 256, prefix="dec1", suffix="2", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
@@ -180,5 +180,5 @@ def Conv_BN(x, n_channels, filter=3, prefix=" ", suffix=" ", strides=1, dilation
     return x
 
 def Resize_Layer(inputs, out_tensor_hw, name="resize"): # resizes input tensor wrt. ref_tensor
-    return tf.image.resize_nearest_neighbor(inputs, out_tensor_hw, name=name)
-    #return tf.image.resize(inputs, out_tensor_hw, name=name)
+    #return tf.image.resize_nearest_neighbor(inputs, out_tensor_hw, name=name)
+    return tf.image.resize(inputs, out_tensor_hw, name=name)

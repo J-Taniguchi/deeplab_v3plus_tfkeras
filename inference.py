@@ -7,10 +7,10 @@ import sys
 from deeplab_v3plus_tfkeras.data_utils import make_xy_from_data_paths, convert_y_to_image_array, inference_large_img, save_inference_results
 from deeplab_v3plus_tfkeras.data_gen import DataGenerator
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.metrics import IoU
-#from loss import make_overwrap_crossentropy
-#from loss import make_weighted_overwrap_crossentropy
-from deeplab_v3plus_tfkeras.loss import make_overwrap_focalloss
+from deeplab_v3plus_tfkeras.metrics import make_IoU
+#from deeplab_v3plus_tfkeras.loss import make_overwrap_crossentropy
+from deeplab_v3plus_tfkeras.loss import make_weighted_overwrap_crossentropy
+#from deeplab_v3plus_tfkeras.loss import make_overwrap_focalloss
 from tensorflow.keras.utils import get_custom_objects
 from tqdm import tqdm
 
@@ -19,11 +19,9 @@ from tqdm import tqdm
 #validdata_dir = '../../data/'
 model_dir = sys.argv[1]
 traindata_dir = sys.argv[2]
-validdata_dir = sys.argv[3]
+testdata_dirs = sys.argv[3:]
 
-valid_names = ["valid_4-09", "valid_4-10"]
-
-image_size = (512,512)
+image_size = (256,256)
 
 gpu_options = tf.compat.v1.GPUOptions(visible_device_list="3", allow_growth=False)
 config = tf.compat.v1.ConfigProto(gpu_options=gpu_options)
@@ -32,14 +30,14 @@ tf.compat.v1.enable_eager_execution(config=config)
 
 label_file_path = os.path.join(traindata_dir, 'label.csv')
 label = Label(label_file_path)
-get_custom_objects()["IoU"] = IoU
+get_custom_objects()["IoU"] = make_IoU(threshold=0.5)
 #get_custom_objects()["overwrap_crossentropy"] = make_overwrap_crossentropy(label.n_labels)
-#weights = [[0.996, 0.004], [0.996, 0.004]]
-#get_custom_objects()["weighted_overwrap_crossentropy"] = \
-#    make_weighted_overwrap_crossentropy(label.n_labels, weights)
+weights = [[0.996, 0.004], [0.996, 0.004]]
+get_custom_objects()["weighted_overwrap_crossentropy"] = \
+    make_weighted_overwrap_crossentropy(label.n_labels, weights)
 
-get_custom_objects()["overwrap_focalloss"] = \
-    make_overwrap_focalloss(label.n_labels)
+#get_custom_objects()["overwrap_focalloss"] = \
+    #make_overwrap_focalloss(label.n_labels)
 
 model = keras.models.load_model(os.path.join(model_dir,'best_model.h5'))
 preprocess = keras.applications.xception.preprocess_input
@@ -74,36 +72,33 @@ save_inference_results(fpath,
                        y=valid_y,
                        last_activation=last_activation)
 
-for valid_name in valid_names:
-    valid_data_dir = os.path.join(validdata_dir, valid_name)
+for testdata_dir in testdata_dirs:
+    test_name = testdata_dir.split(os.sep)[-1]
+    test_x_paths = glob(os.path.join(testdata_dir,'*.png'))
+    test_x_paths.sort()
 
-    valid_x_paths = glob(os.path.join(valid_data_dir,'*.png'))
-    valid_x_paths.sort()
-
-    tar = range(len(valid_x_paths))
+    tar = range(len(test_x_paths))
 
     mode = "max_confidence"
-    out_dir_valid = os.path.join(model_dir, "valid_" + valid_name)
-    os.makedirs(out_dir_valid, exist_ok=True)
-
     x_imgs = []
     seg_imgs =[]
 
-    for i in tqdm(range(len(valid_x_paths))):
+    for i in tqdm(range(len(test_x_paths))):
     #for i in tqdm(np.arange(0, len(valid_x_paths), 1000)):
-        x_img, seg_img = inference_large_img(valid_x_paths[i],
-                                             model,
-                                             preprocess,
-                                             label,
-                                             mode=mode,
-                                             threshold=0.5)
+        x_img, seg_img = inference_large_img(
+            test_x_paths[i],
+            model,
+            preprocess,
+            label,
+            mode=mode,
+            threshold=0.5)
         x_imgs.append(x_img)
         seg_imgs.append(seg_img)
 
     x_imgs = np.array(x_imgs)
     seg_imgs = np.array(seg_imgs)
 
-    fpath = os.path.join(model_dir, valid_name + ".h5")
+    fpath = os.path.join(model_dir, test_name + ".h5")
     save_inference_results(fpath,
                            x=x_imgs,
                            pred=seg_imgs,

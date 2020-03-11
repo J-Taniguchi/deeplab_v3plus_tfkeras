@@ -290,6 +290,8 @@ def make_xy_from_data_paths(x_paths,
             crop_area = get_random_crop_area(image.size, image_size)
             image = image.crop(crop_area)
             crop_areas.append(crop_area)
+        elif resize_or_crop is False:
+            pass
         else:
             raise Exception("resize_or_crop must be 'resize' or 'crop'.")
         image = np.array(image, np.uint8)[:,:,0:3]
