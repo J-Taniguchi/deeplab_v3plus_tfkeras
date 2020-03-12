@@ -367,7 +367,7 @@ def make_y_from_poly_json_path(data_path,
         np.array: y
 
     """
-    y = np.empty((*image_size, label.n_labels), np.float32)
+    y = np.empty((image_size[1], image_size[0], label.n_labels), np.float32)
 
     if data_path == None:
         for i in range(label.n_labels):
