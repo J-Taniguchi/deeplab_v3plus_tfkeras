@@ -95,14 +95,14 @@ def generalized_dice_loss(y_true, y_pred):
     n_pos = tf.reduce_sum(y_true)
     n_neg = tf.reduce_sum(1 - y_true)
 
-    w1 = 1 / (n_pos**2 + epsilon)
-    w2 = 1 / (n_neg**2 + epsilon)
+    #w1 = 1 / (n_pos**2 + epsilon)
+    #w2 = 1 / (n_neg**2 + epsilon)
 
-    #_w1 = 1 / (n_pos**2 + epsilon)
-    #_w2 = 1 / (n_neg**2 + epsilon)
+    _w1 = 1 / (n_pos**2 + epsilon)
+    _w2 = 1 / (n_neg**2 + epsilon)
 
-    #w1 = _w1 / (_w1 + _w2)
-    #w2 = _w2 / (_w1 + _w2)
+    w1 = _w1 / (_w1 + _w2)
+    w2 = 1.0 - w1
 
     numerator1 = 2 * tf.reduce_sum(y_true * y_pred, axis=-1) + epsilon
     denominator1 = tf.reduce_sum(y_true + y_pred, axis=-1) + epsilon

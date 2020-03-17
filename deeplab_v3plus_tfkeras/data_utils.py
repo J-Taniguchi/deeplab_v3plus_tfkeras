@@ -1,45 +1,53 @@
 import numpy as np
 from PIL import Image, ImageDraw
+import cv2
 import pandas as pd
 import json
 import h5py
 import copy
 import numba
 
-def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5, batch_size=8):
+def inference_large_img(in_image,
+                        model,
+                        preprocess,
+                        mode,
+                        threshold=0.5,
+                        batch_size=8):
     """inference for large image.
-        If mode is "simple_crop", simply crop the large image to the model size.
-        If mode is "center", only using the center of the prediction.
-        If mode is "max_confidence", crop the large image while overrapping, calculate sum of the prediction,
-        and, take maximum index as mask.
+        If mode is "simple_crop",    simply crop the large image
+                                     to the model size.
+        If mode is "center",         only using the center of the prediction.
+        If mode is "max_confidence", crop the large image while overrapping,
+                                     calculate sum of the prediction,
+                                     and take maximum index as mask.
 
     Args:
         in_image (path or np.array): path for a large image for inference.
-        model (Model): trained model
-        preprocess (function): preprocessor for the model.
-        label (Label):
-        mode (str): "simple_crop" or "center" or "max_confidence"
-        threshold (float): prediction under this value is treated as "background". Defaults to 0.5.
-        batch_size (int): . Defaults to 8.
+        model (Model):               trained model
+        preprocess (function):       preprocessor for the model.
+        mode (str):                 "simple_crop" or "center" or
+                                    "max_confidence"
+        threshold (float):          prediction under this value is treated as
+                                    "background". Defaults to 0.5.
+        batch_size (int):           Defaults to 8.
 
     Returns:
-        np.array, np.array: image array of x and mask.
+        np.array, np.array: image array of input_image and pred.
 
     """
-    last_activation = model.layers[-1].name
     image_size = model.input_shape[1:3][::-1]
     image_size_half = (image_size[0]//2, image_size[1]//2)
     image_size_quarter = (image_size[0]//4, image_size[1]//4)
+    n_labels = model.output_shape[-1]
 
     if type(in_image) is np.ndarray:
         large_image = in_image
-        h_org = large_image.shape[0]
-        w_org = large_image.shape[1]
     else:
-        large_image = Image.open(in_image)
-        w_org, h_org = large_image.size
+        large_image = cv2.imread(in_image)[:,:,:3]
+        large_image = large_image[:,:,::-1]
 
-
+    h_org = large_image.shape[0]
+    w_org = large_image.shape[1]
 
     if mode == "simple_crop":
         nx = np.int(np.ceil(w_org / image_size[0]))
@@ -53,41 +61,41 @@ def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5,
         for i, x_ind in enumerate(x_inds):
             for j, y_ind in enumerate(y_inds):
                 start_index.append([x_ind, y_ind])
-                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
-                croped_image = large_image.crop(crop_area)
-                croped_image = np.array(croped_image, np.uint8)
-                x.append(croped_image)
+                crop_area = (x_ind,
+                             y_ind,
+                             x_ind+image_size[0],
+                             y_ind+image_size[1])
+                croped_image = large_image[crop_area[1]:crop_area[3],
+                                           crop_area[0]:crop_area[2],
+                                           :]
+                if (croped_image.shape[0] != image_size[1]) or \
+                    (croped_image.shape[1] != image_size[0]):
+                    black_image = np.zeros(
+                        (image_size[1], image_size[0], 3),
+                        dtype=np.uint8)
+                    black_image[0:croped_image.shape[0],
+                                0:croped_image.shape[1],
+                                :] = croped_image[:,:,:].copy()
+                    croped_image = black_image
+                x.append(croped_image.copy())
 
         x = np.array(x)
         start_index = np.array(start_index)
 
-        print("predicting")
         y = model.predict(preprocess(x), batch_size=batch_size)
 
-        print("converting y to image array")
-        croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
+        large_y = np.zeros(
+            (ny*image_size[1], nx*image_size[0], n_labels),
+            dtype=np.float32)
+        for i in range(start_index.shape[0]):
+            now_x = start_index[i,0]
+            now_y = start_index[i,1]
+            large_y[now_y:now_y+image_size[1],
+                    now_x:now_x+image_size[0],
+                    :] = y[i,:,:,:]
+        return np.array(large_image), large_y[0:h_org,0:w_org,:]
 
-        print("merging image")
-        if last_activation == "softmax":
-            croped_y_img_array = np.array(croped_y_img_array)
-            large_mask_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
-            for i in range(start_index.shape[0]):
-                now_x = start_index[i,0]
-                now_y = start_index[i,1]
-                large_mask_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = croped_y_img_array[i,:,:,:]
-            return np.array(large_image), large_mask_image[0:h_org,0:w_org,:]
-        elif last_activation == "sigmoid":
-            large_mask_image = []
-            n_seg_img = len(croped_y_img_array)
-            for j in range(n_seg_img):
-                croped_y_img_array0 = np.array(croped_y_img_array[j])
-                large_mask_image0 = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
-                for i in range(start_index.shape[0]):
-                    now_x = start_index[i,0]
-                    now_y = start_index[i,1]
-                    large_mask_image0[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = croped_y_img_array0[i,:,:,:]
-                large_mask_image.append(copy.deepcopy(large_mask_image0[0:h_org,0:w_org,:]))
-            return np.array(large_image), large_mask_image
+
 
 
     elif mode == "center":
@@ -98,54 +106,51 @@ def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5,
 
         padded_large_image = np.zeros((h,w,3), dtype=np.uint8)
         #put original image to larger black image.
-        padded_large_image[image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:] \
-            = large_image
-        padded_large_image = Image.fromarray(padded_large_image)
+        padded_large_image[image_size_quarter[1]:-image_size_quarter[1],
+                           image_size_quarter[0]:-image_size_quarter[0],
+                           :] = large_image
 
         x = []
         start_index = []
         for i, x_ind in enumerate(x_inds):
             for j, y_ind in enumerate(y_inds):
                 start_index.append([x_ind, y_ind])
-                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
-                croped_image = padded_large_image.crop(crop_area)
-                croped_image = np.array(croped_image, np.uint8)
+                crop_area = (x_ind,
+                             y_ind,
+                             x_ind+image_size[0],
+                             y_ind+image_size[1])
+                croped_image = padded_large_image[crop_area[1]:crop_area[3],
+                                                  crop_area[0]:crop_area[2],:]
+                if (croped_image.shape[0] != image_size[1]) or \
+                    (croped_image.shape[1] != image_size[0]):
+                    black_image = np.zeros(
+                        (image_size[1], image_size[0], 3),
+                        dtype=np.uint8)
+                    black_image[0:croped_image.shape[0],
+                                0:croped_image.shape[1],
+                                :] = croped_image[:,:,:].copy()
+                    croped_image = black_image
                 x.append(croped_image)
 
         x = np.array(x)
         start_index = np.array(start_index)
-
-        print("predicting")
         y = model.predict(preprocess(x), batch_size=batch_size)
-
-        print("converting y to image array")
-        croped_y_img_array = convert_y_to_image_array(y, label, threshold=threshold, activation=last_activation)
-
-        print("merging image")
-        #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
-        #so, initial mask must larger than h and w.
-        if last_activation == "softmax":
-            croped_y_img_array = np.array(croped_y_img_array)
-            mask_image = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
-            for i in range(start_index.shape[0]):
-                now_x = start_index[i,0]# + image_size_half[0]
-                now_y = start_index[i,1]# + image_size_half[1]
-                mask_image[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
-                    = croped_y_img_array[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
-            return np.array(large_image), mask_image[0:h_org,0:w_org,:]
-        elif last_activation == "sigmoid":
-            mask_image = []
-            n_seg_img = len(croped_y_img_array)
-            for j in range(n_seg_img):
-                croped_y_img_array0 = np.array(croped_y_img_array[j])
-                mask_image0 = np.zeros((h+image_size_quarter[1], w+image_size_quarter[0], 3), dtype=x.dtype)
-                for i in range(start_index.shape[0]):
-                    now_x = start_index[i,0]
-                    now_y = start_index[i,1]
-                    mask_image0[now_y:now_y+image_size_half[1], now_x:now_x+image_size_half[0],:] \
-                        = croped_y_img_array0[i,image_size_quarter[1]:-image_size_quarter[1],image_size_quarter[0]:-image_size_quarter[0],:]
-                mask_image.append(copy.deepcopy(mask_image0[0:h_org,0:w_org,:]))
-            return np.array(large_image), mask_image
+        # a little larger size. when crop x, if x is smaller than image_size,
+        # paddit with black.
+        # so, initial mask must larger than h and w.
+        large_y = np.zeros((h+image_size_quarter[1],
+                            w+image_size_quarter[0],
+                            n_labels), dtype=np.float32)
+        for i in range(start_index.shape[0]):
+            now_x = start_index[i,0]# + image_size_half[0]
+            now_y = start_index[i,1]# + image_size_half[1]
+            large_y[now_y:now_y+image_size_half[1],
+                    now_x:now_x+image_size_half[0], :] = \
+                y[i,
+                  image_size_quarter[1]:-image_size_quarter[1],
+                  image_size_quarter[0]:-image_size_quarter[0],
+                  :]
+        return np.array(large_image), large_y[0:h_org,0:w_org,:]
 
     elif mode == "max_confidence":
         w = w_org + (image_size[0] - 1) * 2
@@ -156,109 +161,67 @@ def inference_large_img(in_image, model, preprocess, label, mode, threshold=0.5,
         padded_large_image = np.zeros((h,w,3), dtype=np.uint8)
         #put original image to larger black image.
         padded_large_image[(image_size[1]-1):(image_size[1]-1)+h_org,
-                           (image_size[0]-1):(image_size[0]-1)+w_org,:] \
-            = large_image
-        padded_large_image = Image.fromarray(padded_large_image)
+                           (image_size[0]-1):(image_size[0]-1)+w_org,
+                           :] = large_image
 
         x = []
         start_index = []
         for i, x_ind in enumerate(x_inds):
             for j, y_ind in enumerate(y_inds):
                 start_index.append([x_ind, y_ind])
-                crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
-                croped_image = padded_large_image.crop(crop_area)
-                croped_image = np.array(croped_image, np.uint8)
+                crop_area = (x_ind,
+                             y_ind,
+                             x_ind+image_size[0],
+                             y_ind+image_size[1])
+                croped_image = padded_large_image[crop_area[1]:crop_area[3],
+                                                  crop_area[0]:crop_area[2],:]
+                if (croped_image.shape[0] != image_size[1]) or \
+                    (croped_image.shape[1] != image_size[0]):
+                    black_image = np.zeros(
+                        (image_size[1], image_size[0], 3),
+                        dtype=np.uint8)
+                    black_image[0:croped_image.shape[0],
+                                0:croped_image.shape[1],
+                                :] = croped_image[:,:,:].copy()
+                    croped_image = black_image
                 x.append(croped_image)
 
         x = np.array(x)
         start_index = np.array(start_index)
-
-        print("predicting")
         y = model.predict(preprocess(x), batch_size=batch_size)
-
-        print("merging image")
         #a little larger size. when crop x, if x is smaller than image_size, paddit with black.
         #so, initial mask must larger than h and w.
-        mask = np.zeros((h+image_size[1], w+image_size[0], y.shape[-1]), dtype=np.float32)
-        mask_count = np.zeros((h+image_size[1], w+image_size[0], y.shape[-1]), dtype=np.float32)
+        large_y = np.zeros((h+image_size[1],
+                            w+image_size[0],
+                            n_labels), dtype=np.float32)
+        large_y_count = np.zeros((h+image_size[1],
+                                  w+image_size[0],
+                                  n_labels), dtype=np.float32)
 
         for i in range(start_index.shape[0]):
             now_x = start_index[i,0]# + image_size_half[0]
             now_y = start_index[i,1]# + image_size_half[1]
-            mask[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] \
-                += y[i,:,:,:]
-            mask_count[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] += 1
-        mask = mask[(image_size[1]-1):(image_size[1]-1)+h_org, (image_size[0]-1):(image_size[0]-1)+w_org, :]
-        mask_count = mask_count[(image_size[1]-1):(image_size[1]-1)+h_org, (image_size[0]-1):(image_size[0]-1)+w_org, :]
-        if mask_count.min() <= 0:
+            large_y[now_y:now_y+image_size[1],
+                    now_x:now_x+image_size[0],:] += y[i,:,:,:]
+            large_y_count[now_y:now_y+image_size[1],
+                          now_x:now_x+image_size[0],:] += 1
+        large_y = large_y[(image_size[1]-1):(image_size[1]-1)+h_org,
+                          (image_size[0]-1):(image_size[0]-1)+w_org, :]
+        large_y_count = \
+            large_y_count[(image_size[1]-1):(image_size[1]-1)+h_org,
+                          (image_size[0]-1):(image_size[0]-1)+w_org, :]
+        if large_y_count.min() <= 0:
             raise Exception("SOMTING WRONG")
-        mask = mask / mask_count
-
-        print("converting y to image array")
-
-        mask_image = convert_y_to_image_array(mask[np.newaxis,:,:,:],
-                                              label,
-                                              threshold=threshold,
-                                              activation=last_activation)
-        if last_activation == "softmax":
-            return np.array(large_image), mask_image[0]
-        elif last_activation == "sigmoid":
-            return np.array(large_image), mask_image[0]
-
+        large_y = large_y / large_y_count
+        return np.array(large_image), large_y
+    elif mode == "whole":
+        x = large_image
+        y = model.predict(preprocess(x), batch_size=batch_size)
+        return x, y
 
     else:
         raise Exception("mode must be \"simple_crop\" or \"center\" or \"max_confidence\"")
 
-
-
-
-'''
-def make_x_from_large_img_path(data_path, image_size):
-    """crop one large image to image_size.
-
-    Args:
-        data_path (str): large image path(must be larger than image_size)
-        image_size (tuple): input image size.
-
-    Returns:
-        x(np.array): (batch,y,x,rgb)
-        start_index(np.array): (batch_ind,x_start, y_start) indicates the location in the image.
-                               batch_ind is corresponding to 1st axis of x.
-
-    """
-    x = []
-    start_index = []
-    large_image = Image.open(data_path)
-    w,h = large_image.size
-    nx = np.int(np.ceil(w / image_size[0]))
-    ny = np.int(np.ceil(h / image_size[1]))
-
-    x_inds = np.linspace(0, w, nx+1, dtype=int)[0:-1]
-    y_inds = np.linspace(0, h, ny+1, dtype=int)[0:-1]
-
-    for i, x_ind in enumerate(x_inds):
-        for j, y_ind in enumerate(y_inds):
-            start_index.append([x_ind, y_ind])
-            crop_area = (x_ind, y_ind, x_ind+image_size[0], y_ind+image_size[1])
-            croped_image = large_image.crop(crop_area)
-            croped_image = np.array(croped_image, np.uint8)
-            x.append(croped_image)
-
-    return np.array(x), np.array(start_index)
-
-#overlapを考えたものに書き換えたい
-def merge_croped_large_image(x, image_size, start_ind):
-    nx = np.unique(start_ind[:,0]).size
-    ny = np.unique(start_ind[:,1]).size
-    #large_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=np.uint8)
-    large_image = np.zeros((ny*image_size[1], nx*image_size[0], 3), dtype=x.dtype)
-
-    for i in range(start_ind.shape[0]):
-        now_x = start_ind[i,0]
-        now_y = start_ind[i,1]
-        large_image[now_y:now_y+image_size[1], now_x:now_x+image_size[0],:] = x[i,:,:,:]
-    return large_image
-'''
 
 def make_xy_from_data_paths(x_paths,
                             y_paths,
@@ -463,42 +426,57 @@ def get_random_crop_area(image_size, out_size):
     ymax = ymin + out_size[1]
     return (xmin, ymin, xmax, ymax)
 
-def convert_y_to_image_array(y, label, threshold=0.5, activation="softmax"):
-    out_img = []
-    for i in range(y.shape[0]):
-        if activation == "softmax":
-            out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
-            under_threshold = y[i,:,:,:].max(2) < threshold
-            y[i,under_threshold,0] = 1.0
-            max_category = y[i,:,:,:].argmax(2)
-            for j in range(label.n_labels):
-                out_img0[max_category==j] = label.color[j,:]
-            out_img.append(out_img0)
-        elif activation == "sigmoid":
-            tmp = []
-            for j in range(label.n_labels):
-                out_img0 = np.zeros((y.shape[1], y.shape[2], 3), np.uint8)
-                tar_idx = y[i,:,:,j] > threshold
-                out_img0[tar_idx,:] = label.color[j,:]
-                tmp.append(out_img0)
-            out_img.append(tmp)
-        else:
-            print("activation is " + activation)
-            raise Exception("activation must be 'softmax' or 'sigmoid'")
-    return out_img
-
 def save_inference_results(fpath, x, pred, last_activation, y="no_data"):
     with h5py.File(fpath,"w") as f:
-        f.create_dataset("x", data=x)
-        f.create_dataset("y", data=y)
-        f.create_dataset("pred", data=pred)
+        if y == "no_data":
+            f.create_dataset("have_y", data=False)
+        else:
+            f.create_dataset("have_y", data=True)
+        # this case means inference for different image sizes.
+        if x.dtype == 'O':
+            f.create_dataset("dataset_type", data="list")
+            f.create_dataset("n_images", data=len(x))
+            for i in range(len(x)):
+                f.create_dataset("x/{}".format(i), data=x[i])
+                f.create_dataset("pred/{}".format(i), data=pred[i])
+
+                if y != "no_data":
+                    f.create_dataset("y/{}".format(i), data=y[i])
+                else:
+                    if i == 0:
+                        f.create_dataset("y", data=y)
+
+        else:
+            f.create_dataset("dataset_type", data="array")
+            f.create_dataset("x", data=x)
+            f.create_dataset("y", data=y)
+            f.create_dataset("pred", data=pred)
         f.create_dataset("last_activation", data=last_activation)
 
 def load_inference_results(fpath):
     with h5py.File(fpath, "r") as f:
-        x = f["x"][()]
-        y = f["y"][()]
-        pred = f["pred"][()]
+        dataset_type = f["dataset_type"][()]
+        have_y = f["have_y"][()]
+        print(dataset_type)
+        if dataset_type == "list":
+            x = []
+            if have_y:
+                y = []
+            pred = []
+            n_images = f["n_images"][()]
+            for i in range(n_images):
+                x.append(f["x/{}".format(i)][()])
+                pred.append(f["pred/{}".format(i)][()])
+                if have_y:
+                    y.append(f["y/{}".format(i)][()])
+                else:
+                    if i == 0:
+                        y = f["y"][()]
+
+        else:
+            x = f["x"][()]
+            y = f["y"][()]
+            pred = f["pred"][()]
         last_activation = f["last_activation"][()]
     return x, y, pred, last_activation
 

@@ -1,0 +1,46 @@
+# trained model, inference results, visualised images will be saved in model_dir
+model_dir: path/to/model_dir
+
+label_file_path: path/to/label.csv
+train_data_paths:
+    - path/to/train_data_dir1
+    - path/to/train_data_dir2
+    #- path/to/train_data1.h5
+    #- path/to/train_data2.h5
+valid_data_paths:
+    - path/to/valid_data_dir1
+    - path/to/valid_data_dir2
+    #- path/to/valid_data1.h5
+    #- path/to/valid_data2.h5
+
+# below is to inference and visualise.
+test_data_paths:
+    - path/to/test_data_dir1
+    - path/to/test_data_dir2
+#if you don't use the value, write "~" like below.
+#test_data_paths: ~
+
+which_to_inference:
+    #- train
+    #- valid
+    - test
+which_to_visualise:
+    #- train
+    #- valid
+    - test
+
+# below is training setting
+# choose one for output_activation.
+# softmax: one pixel belong to one category.
+# sigmoid: one pixel can belong to two or more categories.
+output_activation: softmax
+batch_size: 16
+n_epochs: 350
+use_devise: 0
+image_size: [256,256]
+# Choose one for loss function.
+# CE: cross entropy
+# WCE: weighted cross entropy
+# FL: focal loss
+# GDL: generalized dice loss
+loss: FL

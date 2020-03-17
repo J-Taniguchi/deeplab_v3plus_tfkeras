@@ -3,129 +3,108 @@ import os
 import sys
 import joblib
 n_jobs=36
-import matplotlib.pyplot as plt
-import matplotlib
-from PIL import Image
-import cv2
+import yaml
+
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.data_utils import load_inference_results, convert_y_to_image_array
+from deeplab_v3plus_tfkeras.data_utils import load_inference_results
+from deeplab_v3plus_tfkeras.vis_utils import convert_y_to_image_array
+from deeplab_v3plus_tfkeras.vis_utils import visualise_true_pred
+from deeplab_v3plus_tfkeras.vis_utils import visualise_pred
 import h5py
 
-model_dir = sys.argv[1]
-traindata_dir = sys.argv[2]
-testdata_dirs = sys.argv[3:]
+conf_file = sys.argv[1]
+with open(conf_file, "r") as f:
+    conf = yaml.safe_load(f)
 
-out_dir = os.path.join(model_dir,"figure")
 
-label_file_path = os.path.join(traindata_dir, 'label.csv')
+model_dir = conf["model_dir"]
+label_file_path = conf["label_file_path"]
+train_data_paths = conf["train_data_paths"]
+valid_data_paths = conf["valid_data_paths"]
+test_data_paths = conf["test_data_paths"]
+
+which_to_visualise = conf["which_to_visualise"]
+
+fig_dir = os.path.join(model_dir, "figure")
 label = Label(label_file_path)
 
-matplotlib.use('Agg')
 
-def visualise_true_pred(i, x, y_true, y_pred, last_activation):
-    if last_activation == "softmax":
-        img = Image.fromarray(y_pred[i])
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_pred_seg.png"))
-        img = Image.fromarray(y_true[i])
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_true_seg.png"))
+#train data
+if "train" in which_to_visualise:
+    fig_out_dir = os.path.join(fig_dir, "train")
+    os.makedirs(fig_out_dir, exist_ok = True)
 
-        img = Image.fromarray(x[i,:,:,:])
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_x.png"))
-
-        y_mask = y_pred[i].copy()/255
-        black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-        y_mask[black_pix,:] = [1.0,1.0,1.0]
-        img = Image.fromarray((y_mask*x[i,:,:,:]).astype(np.uint8))
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_pred_x_seg.png"))
-
-        y_mask = y_true[i].copy()/255
-        black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-        y_mask[black_pix,:] = [1.0,1.0,1.0]
-        img = Image.fromarray((y_mask*x[i,:,:,:]).astype(np.uint8))
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_true_x_seg.png"))
-    elif last_activation == "sigmoid":
-        img = Image.fromarray(x[i,:,:,:])
-        img.save(os.path.join(out_dir_train,str(i).zfill(6) + "_x.png"))
-        for j in range(label.n_labels):
-            label_name =label.name[j]
-
-            img = Image.fromarray(y_pred[i][j])
-            img.save(os.path.join(out_dir_train,str(i).zfill(6) + label_name + "_pred_seg.png"))
-            img = Image.fromarray(y_true[i][j])
-            img.save(os.path.join(out_dir_train,str(i).zfill(6) + label_name + "_true_seg.png"))
-
-            y_mask = y_pred[i][j].copy()/255
-            black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-            white_pix=(y_mask == np.array([1.0,1.0,1.0])).all(axis=2)
-            y_mask[black_pix,:] = [0.5,0.5,0.5]
-            y_mask[white_pix,:] = [0.5,0.5,0.5]
-            img = Image.fromarray((y_mask*x[i,:,:,:]).astype(np.uint8))
-            img.save(os.path.join(out_dir_train,str(i).zfill(6) + label_name + "_pred_x_seg.png"))
-
-            y_mask = y_true[i][j].copy()/255
-            black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-            white_pix=(y_mask == np.array([1.0,1.0,1.0])).all(axis=2)
-            y_mask[black_pix,:] = [0.5,0.5,0.5]
-            y_mask[white_pix,:] = [0.5,0.5,0.5]
-            img = Image.fromarray((y_mask*x[i,:,:,:]).astype(np.uint8))
-            img.save(os.path.join(out_dir_train,str(i).zfill(6) + label_name + "_true_x_seg.png"))
-
-
-def visualise_pred(i, x, y, last_activation, out_dir_name):
-    if last_activation == "softmax":
-        img = Image.fromarray(y)
-        img.save(os.path.join(out_dir_name, str(i).zfill(6) + "_seg.png"))
-
-        img = Image.fromarray(x)
-        img.save(os.path.join(out_dir_name, str(i).zfill(6) + "_x.png"))
-
-        y_mask = y.copy()/255
-        black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-        y_mask[black_pix,:] = [1.0,1.0,1.0]
-        img = Image.fromarray((y_mask*x).astype(np.uint8))
-        img.save(os.path.join(out_dir_name, str(i).zfill(6) + "_x_seg.png"))
-    elif last_activation == "sigmoid":
-        for j in range(label.n_labels):
-            label_name =label.name[j]
-
-            img = Image.fromarray(y[i,j,:,:,:])
-            img.save(os.path.join(out_dir_name, str(i).zfill(6) + label_name + "_seg.png"))
-
-            if j == 0:
-                img = Image.fromarray(x[i,:,:,:])
-                img.save(os.path.join(out_dir_name, str(i).zfill(6) + "_x.png"))
-
-            y_mask = y[i,j,:,:,:].copy()/255
-            black_pix=(y_mask == np.array([0.0,0.0,0.0])).all(axis=2)
-            white_pix=(y_mask == np.array([1.0,1.0,1.0])).all(axis=2)
-            y_mask[black_pix,:] = [0.5,0.5,0.5]
-            y_mask[white_pix,:] = [0.5,0.5,0.5]
-            img = Image.fromarray((y_mask*x[i,:,:,:]).astype(np.uint8))
-            img.save(os.path.join(out_dir_name, str(i).zfill(6) + label_name + "_x_seg.png"))
-
-#trained data
-'''
-out_dir_train = os.path.join(out_dir, "train")
-os.makedirs(out_dir_train,exist_ok = True)
-
-fpath = os.path.join(model_dir, "trained.h5")
-x, y, pred, last_activation = load_inference_results(fpath)
-
-y_pred = convert_y_to_image_array(pred, label, threshold=0.5, activation=last_activation)
-y_true = convert_y_to_image_array(y, label, activation=last_activation)
-
-joblib.Parallel(n_jobs=n_jobs, verbose=10, backend="threading")(joblib.delayed(visualise_true_pred)(i, x, y_true, y_pred, last_activation) for i in range(x.shape[0]))
-'''
-#test data
-for test_dir in testdata_dirs:
-    print(test_dir)
-    test_name = testdata_dir.split(os.sep)[-1]
-    out_dir_test = os.path.join(out_dir, test_name)
-    os.makedirs(out_dir_test, exist_ok = True)
-
-    fpath = os.path.join(model_dir, test_name + ".h5")
+    fpath = os.path.join(model_dir, "train_inference.h5")
     x, y, pred, last_activation = load_inference_results(fpath)
 
-    #y_pred = convert_y_to_image_array(pred, label, threshold=0.5, activation=last_activation)
+    y_pred = convert_y_to_image_array(pred,
+                                      label,
+                                      threshold=0.5,
+                                      activation=last_activation)
+    y_true = convert_y_to_image_array(y,
+                                      label,
+                                      activation=last_activation)
 
-    joblib.Parallel(n_jobs=n_jobs, verbose=10, backend="threading")(joblib.delayed(visualise_pred)(i, x, pred, last_activation, out_dir_test) for i in range(x.shape[0]))
+    joblib.Parallel(
+        n_jobs=n_jobs,
+        verbose=10,
+        backend="threading")(joblib.delayed(visualise_true_pred)(
+            i,
+            x,
+            y_true,
+            y_pred,
+            fig_out_dir,
+            last_activation,
+            label) for i in range(x.shape[0]))
+
+#valid data
+if "valid" in which_to_visualise:
+    fig_out_dir = os.path.join(fig_dir, "valid")
+    os.makedirs(fig_out_dir, exist_ok = True)
+
+    fpath = os.path.join(model_dir, "valid_inference.h5")
+    x, y, pred, last_activation = load_inference_results(fpath)
+
+    y_pred = convert_y_to_image_array(pred,
+                                      label,
+                                      threshold=0.5,
+                                      activation=last_activation)
+    y_true = convert_y_to_image_array(y,
+                                      label,
+                                      activation=last_activation)
+
+    joblib.Parallel(
+        n_jobs=n_jobs,
+        verbose=10,
+        backend="threading")(joblib.delayed(visualise_true_pred)(
+            i,
+            x,
+            y_true,
+            y_pred,
+            fig_out_dir,
+            last_activation,
+            label) for i in range(x.shape[0]))
+#test data
+if "test" in which_to_visualise:
+    for test_data_path in test_data_paths:
+        print(test_data_path)
+        test_name = test_data_path.split(os.sep)[-1]
+        fig_out_dir = os.path.join(fig_dir, "test_" + test_name)
+        os.makedirs(fig_out_dir, exist_ok = True)
+
+        fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
+        x, _, pred, last_activation = load_inference_results(fpath)
+
+        y_pred = convert_y_to_image_array(pred,
+                                          label,
+                                          threshold=0.5,
+                                          activation=last_activation)
+
+        joblib.Parallel(n_jobs=n_jobs, verbose=10, backend="threading")(
+            joblib.delayed(visualise_pred)(
+                i,
+                x,
+                y_pred,
+                fig_out_dir,
+                last_activation,
+                label) for i in range(len(x)))
