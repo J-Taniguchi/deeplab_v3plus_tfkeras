@@ -40,7 +40,8 @@ class path_DataGenerator(keras.utils.Sequence):
 
     def __getitem__(self, idx):
         # バッチサイズ分取り出す
-        tar_ind = self.batch_ind[idx * self.batch_size:(idx + 1) * self.batch_size]
+        tar_ind = self.batch_ind[idx * self.batch_size:
+                                 (idx + 1) * self.batch_size]
         batch_x_paths = self.img_paths[tar_ind]
         batch_y_paths = self.seg_img_paths[tar_ind]
 
@@ -110,3 +111,66 @@ class array_DataGenerator(keras.utils.Sequence):
     def on_epoch_end(self):
         if self.shuffle:
             np.random.shuffle(self.batch_ind)
+
+def make_path_generator(img_paths,
+                        seg_img_paths,
+                        image_size,
+                        label: Label,
+                        preprocess=None,
+                        augmentation=True,
+                        resize_or_crop="resize",
+                        data_type="image"):
+
+    def path_generator():
+
+        n_images = len(img_paths)
+
+        for i in range(n_images):
+            x, y = make_xy_from_data_paths(
+                [img_paths[i]],
+                [seg_img_paths[i]],
+                image_size,
+                label,
+                data_type=data_type,
+                resize_or_crop=resize_or_crop)
+            if augmentation == True:
+                x, y = data_augment(x,
+                                    y,
+                                    image_size=image_size,
+                                    p=0.95)
+
+            if preprocess == None:
+                x = (x/127.5)-1
+            else:
+                x = preprocess(x)
+            yield x[0,:,:,:], y[0,:,:,:]
+    return path_generator
+
+def make_array_generator(x,
+                         y,
+                         preprocess=None,
+                         augmentation=True):
+
+    def array_generator():
+        n_images = x.shape[0]
+        # image_size for data_augment is (height, width)
+        image_size = x.shape[1:3]
+
+        for i in range(n_images):
+            _x = x[i:i+1,:,:,:]
+            _y = y[i:i+1,:,:,:]
+
+            if augmentation == True:
+                # image_size for data_augment is (height, width)
+                _x, _y = data_augment(_x,
+                                      _y,
+                                      image_size=image_size,
+                                      p=0.95)
+
+            if preprocess == None:
+                _x = (_x/127.5) - 1
+            else:
+                _x = preprocess(_x)
+            yield _x[0,:,:,:], _y[0,:,:,:]
+            
+    return array_generator

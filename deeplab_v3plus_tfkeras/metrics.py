@@ -1,5 +1,7 @@
 import tensorflow as tf
 
+epsilon = tf.keras.backend.epsilon()
+
 def make_IoU(threshold=0.5):
     def IoU(y_true, y_pred):
         p = tf.dtypes.cast(y_pred > threshold, tf.float32)

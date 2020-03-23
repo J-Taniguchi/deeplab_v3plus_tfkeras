@@ -2,6 +2,7 @@ from albumentations import *
 import numpy as np
 
 def augmentor(p, image_size):
+    # image_size:(height, width)
     cutout_size = min(image_size) //20
     return Compose([
         #RandomResizedCrop(*image_size, scale=(0.5,2.0), p=0.5),
@@ -51,11 +52,12 @@ def augmentor(p, image_size):
     ], p=p)
 
 def data_augment(images, masks, image_size, p):
-    aug = augmentor(p,image_size)
+    # image_size:(height, width)
+    aug = augmentor(p, image_size)
     out_img = []
     out_mask = []
     for i in range(images.shape[0]):
-        auged = aug(image=images[i,:,:,:],mask=masks[i,:,:,:])
+        auged = aug(image=images[i,:,:,:], mask=masks[i,:,:,:])
         out_img.append(auged["image"])
         out_mask.append(auged["mask"])
     return np.array(out_img), np.array(out_mask)

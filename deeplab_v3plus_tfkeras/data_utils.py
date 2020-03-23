@@ -426,9 +426,9 @@ def get_random_crop_area(image_size, out_size):
     ymax = ymin + out_size[1]
     return (xmin, ymin, xmax, ymax)
 
-def save_inference_results(fpath, x, pred, last_activation, y="no_data"):
+def save_inference_results(fpath, x, pred, last_activation, y=None):
     with h5py.File(fpath,"w") as f:
-        if y == "no_data":
+        if y is None:
             f.create_dataset("have_y", data=False)
         else:
             f.create_dataset("have_y", data=True)
@@ -440,7 +440,7 @@ def save_inference_results(fpath, x, pred, last_activation, y="no_data"):
                 f.create_dataset("x/{}".format(i), data=x[i])
                 f.create_dataset("pred/{}".format(i), data=pred[i])
 
-                if y != "no_data":
+                if y is not None:
                     f.create_dataset("y/{}".format(i), data=y[i])
                 else:
                     if i == 0:

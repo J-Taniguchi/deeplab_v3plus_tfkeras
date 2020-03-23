@@ -1,46 +1,27 @@
 import tensorflow as tf
+import tensorflow.keras as keras
+epsilon = keras.backend.epsilon()
 
-
-def make_overwrap_crossentropy(n_labels):
-    def overwrap_crossentropy(y_true, y_pred):
-        for i in range(n_labels):
-            if i == 0:
-                loss = tf.keras.losses.binary_crossentropy(y_true[:,:,:,i], y_pred[:,:,:,i], from_logits=True)
-            else:
-                loss += tf.keras.losses.binary_crossentropy(y_true[:,:,:,i], y_pred[:,:,:,i], from_logits=True)
-        return loss / n_labels
-    return overwrap_crossentropy
-
-
-def make_weighted_overwrap_crossentropy(n_labels, weights):
-    def weighted_overwrap_crossentropy(y_true, y_pred):
-        for i in range(n_labels):
-            if i == 0:
-                loss = weighted_crossentropy(y_true[:,:,:,i], y_pred[:,:,:,i], weights[i])
-            else:
-                loss += weighted_crossentropy(y_true[:,:,:,i], y_pred[:,:,:,i], weights[i])
-        return loss / n_labels
-    return weighted_overwrap_crossentropy
-
-
-def make_overwrap_focalloss(n_labels, alphas, gammas):
+def make_focal_loss(n_labels, alpha_list, gamma_list, class_weight=None):
+    if class_weight is None:
+        class_weight = [1/n_labels] * n_labels
     FL = []
     for i in range(n_labels):
-        FL.append(make_focal_loss(alphas[i], gammas[i]))
+        FL.append(_make_focal_loss(alpha_list[i], gamma_list[i]))
 
-    def overwrap_focalloss(y_true, y_pred):
+    def focal_loss(y_true, y_pred):
         for i in range(n_labels):
             if i == 0:
-                loss = FL[i](y_true[:,:,:,i], y_pred[:,:,:,i])
+                loss = FL[i](y_true[:,:,:,i], y_pred[:,:,:,i]) * class_weight[i]
             else:
-                loss += FL[i](y_true[:,:,:,i], y_pred[:,:,:,i])
+                loss += FL[i](y_true[:,:,:,i], y_pred[:,:,:,i]) * class_weight[i]
         return loss / n_labels
 
-    return overwrap_focalloss
+    return focal_loss
 
 
-def make_focal_loss(alpha, gamma):
-    def focal_loss(y_true, y_pred):
+def _make_focal_loss(alpha, gamma):
+    def _focal_loss(y_true, y_pred):
         """
         Args:
             y_true :
@@ -71,26 +52,12 @@ def make_focal_loss(alpha, gamma):
 
         return pos_loss + neg_loss
 
-    return focal_loss
-
-
-def weighted_crossentropy(y_true, y_pred, weights):
-    pos_mask = tf.dtypes.cast(tf.math.equal(y_true, 1.0), tf.float32)
-    neg_mask = tf.dtypes.cast(tf.math.less (y_true, 1.0), tf.float32)
-
-    pos_loss = tf.math.log(tf.clip_by_value(    y_pred, 1e-4, 1.0))
-    neg_loss = tf.math.log(tf.clip_by_value(1 - y_pred, 1e-4, 1.0))
-
-    pos_loss = -1.0 * pos_loss * pos_mask * weights
-    neg_loss = -1.0 * neg_loss * neg_mask * (1 - weights)
-
-    return pos_loss + neg_loss
+    return _focal_loss
 
 
 def generalized_dice_loss(y_true, y_pred):
     # from https://arxiv.org/pdf/1707.03237.pdf
     # "Generalised Dice overlap as a deep learning loss function for highly unbalanced segmentations"
-    epsilon = 1e-6
 
     n_pos = tf.reduce_sum(y_true)
     n_neg = tf.reduce_sum(1 - y_true)
@@ -113,18 +80,3 @@ def generalized_dice_loss(y_true, y_pred):
     DS2 = numerator2 / denominator2
 
     return 1 - w1 * DS1 - w2 * DS2
-
-def make_weighted_MSE(image_size):
-    pix_count = image_size[0] * image_size[1]
-    def weighted_MSE(y_true, y_pred):
-        weight = tf.dtypes.cast(tf.math.equal(y_true, 1.0) , tf.float32)
-        weight = tf.math.reduce_sum(weight, axis=[0,1,2])
-        weight = tf.math.divide(pix_count - weight , (weight+1e-6))
-        weight_mat = y_true * weight + 1.0
-        loss = tf.math.reduce_mean(((y_true - y_pred)**2)*weight_mat, axis=[0])
-        loss = loss * y_true * weight
-        loss = tf.math.reduce_mean(loss * weight)
-
-        return loss
-
-    return weighted_MSE

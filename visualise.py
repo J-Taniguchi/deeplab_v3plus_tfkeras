@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import sys
 import joblib
@@ -10,7 +9,6 @@ from deeplab_v3plus_tfkeras.data_utils import load_inference_results
 from deeplab_v3plus_tfkeras.vis_utils import convert_y_to_image_array
 from deeplab_v3plus_tfkeras.vis_utils import visualise_true_pred
 from deeplab_v3plus_tfkeras.vis_utils import visualise_pred
-import h5py
 
 conf_file = sys.argv[1]
 with open(conf_file, "r") as f:
