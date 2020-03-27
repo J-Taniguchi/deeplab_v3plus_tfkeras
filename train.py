@@ -9,6 +9,7 @@ use_devices = str(conf["use_devices"])
 os.environ["CUDA_VISIBLE_DEVICES"] = use_devices
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
+import shutil
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -40,6 +41,7 @@ image_size = conf["image_size"]
 loss = conf["loss"]
 optimizer = conf["optimizer"]
 class_weight = conf["class_weight"]
+use_tensorboard = conf["use_tensorboard"]
 
 label = Label(label_file_path)
 if class_weight is not None:
@@ -60,7 +62,7 @@ preprocess = keras.applications.xception.preprocess_input
 if train_data_types[0] == "dir":
     train_x_paths, train_y_paths = make_xy_path_list(train_data_paths)
     n_train_data=len(train_x_paths)
-    train_data_gen = my_generator.make_path_generator(
+    train_dataset, train_map_f = my_generator.make_path_generator(
         train_x_paths,
         train_y_paths,
         image_size,
@@ -73,27 +75,28 @@ if train_data_types[0] == "dir":
 else:
     train_x, train_y = make_xy_array(train_data_paths)
     n_train_data=len(train_x)
-
-    train_data_gen = my_generator.make_array_generator(
+    train_dataset, train_map_f = my_generator.make_array_generator(
         train_x,
         train_y,
         preprocess=preprocess,
         augmentation=True,
         )
 
-train_dataset = tf.data.Dataset.from_generator(
-    generator=train_data_gen,
-    output_types=(tf.float32, tf.float32),
-    output_shapes=([None,None,None], [None,None,None]))
+
+train_dataset = train_dataset.shuffle(n_train_data)
+train_dataset = train_dataset.map(train_map_f,
+    num_parallel_calls=tf.data.experimental.AUTOTUNE)
+train_dataset = train_dataset.batch(batch_size)
 train_dataset = train_dataset.prefetch(
     buffer_size=tf.data.experimental.AUTOTUNE)
-train_dataset = train_dataset.batch(batch_size)
+
+
 
 # make valid dataset
 if valid_data_types[0] == "dir":
     valid_x_paths, valid_y_paths = make_xy_path_list(valid_data_paths)
     n_valid_data=len(valid_x_paths)
-    valid_data_gen = my_generator.make_path_generator(
+    valid_dataset, valid_map_f = my_generator.make_path_generator(
         valid_x_paths,
         valid_y_paths,
         image_size,
@@ -105,18 +108,20 @@ if valid_data_types[0] == "dir":
 else:
     valid_x, valid_y = make_xy_array(valid_data_paths)
     n_valid_data=len(valid_x)
-    valid_data_gen = my_generator.make_array_generator(
+    valid_dataset, valid_map_f = my_generator.make_array_generator(
         valid_x,
         valid_y,
         preprocess=preprocess,
         augmentation=False)
-valid_dataset = tf.data.Dataset.from_generator(
-    generator=valid_data_gen,
-    output_types=(tf.float32, tf.float32),
-    output_shapes=([None,None,None], [None,None,None]))
+
+
+valid_dataset = valid_dataset.map(valid_map_f,
+    num_parallel_calls=tf.data.experimental.AUTOTUNE)
+valid_dataset = valid_dataset.batch(batch_size)
 valid_dataset = valid_dataset.prefetch(
     buffer_size=tf.data.experimental.AUTOTUNE)
-valid_dataset = valid_dataset.batch(batch_size)
+
+
 
 
 # define loss function
@@ -222,6 +227,16 @@ cp_cb = keras.callbacks.ModelCheckpoint(
     save_best_only=True,
     save_weights_only=False,
     mode='max')
+cbs = [cp_cb]
+
+if use_tensorboard:
+    log_dir = os.path.join(out_dir, "logs")
+    TB_cb = tf.keras.callbacks.TensorBoard(
+        log_dir=log_dir, write_graph=False)
+    cbs.append(TB_cb)
+
+    if os.path.exists(log_dir):
+        shutil.rmtree(log_dir)
 
 # training
 n_train_batch = int(np.ceil(n_train_data / batch_size))
@@ -231,11 +246,8 @@ print("valid batch:{}".format(n_valid_batch))
 hist = model.fit(
     train_dataset,
     epochs=n_epochs,
-    shuffle=True,
     validation_data=valid_dataset,
-    workers=12,
-    use_multiprocessing=True,
-    callbacks=[cp_cb],
+    callbacks=cbs,
     class_weight=label.class_weight)
 
 # write log

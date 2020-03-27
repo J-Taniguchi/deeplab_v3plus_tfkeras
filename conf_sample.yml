@@ -56,3 +56,5 @@ class_weight: ~
 #class_weight:
 #    - 100
 #    - 200
+# True or False
+use_tensorboard: True
