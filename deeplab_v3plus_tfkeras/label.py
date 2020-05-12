@@ -1,14 +1,15 @@
 import pandas as pd
 import numpy as np
 
+
 class Label():
     def __init__(self,
                  label_file_path):
         label_pd = pd.read_csv(label_file_path, header=None)
-        self.name = list(label_pd.iloc[:,0])
-        self.color = np.array(label_pd.iloc[:,1:])
+        self.name = list(label_pd.iloc[:, 0])
+        self.color = np.array(label_pd.iloc[:, 1:])
         self.n_labels = len(self.name)
-        self.class_weight = [1/self.n_labels] * self.n_labels
+        self.class_weight = [1 / self.n_labels] * self.n_labels
         print("labels", self.name)
 
     def add_class_weight(self, class_weight):

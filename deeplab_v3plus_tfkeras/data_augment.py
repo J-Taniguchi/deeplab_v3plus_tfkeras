@@ -1,5 +1,6 @@
 import tensorflow as tf
-import numpy as np
+# import numpy as np
+
 
 def augmentor(image, mask):
     # you can edit here for image augmentation.
@@ -18,13 +19,14 @@ def augmentor(image, mask):
 
     return image, mask
 
+
 def data_augment(image, mask, image_size, p):
-    #if p < 0.0:
+    # if p < 0.0:
     #    raise ValueError("p < 0. p must be positive number.")
-    #if len(image.shape) != 3:
-        #raise Exception("dimension of images for data_augment must be 3")
-    #if len(mask.shape) != 3:
-        #raise Exception("dimension of masks for data_augment must be 3")
+    # if len(image.shape) != 3:
+    #    raise Exception("dimension of images for data_augment must be 3")
+    # if len(mask.shape) != 3:
+    #    raise Exception("dimension of masks for data_augment must be 3")
     p = float(p)
     should_apply_op = tf.cast(
         tf.floor(tf.random.uniform([], dtype=tf.float32) + p), tf.bool)

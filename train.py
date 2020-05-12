@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import shutil
 
 conf_file = sys.argv[1]
 with open(conf_file, "r") as f:
@@ -9,14 +10,14 @@ use_devices = str(conf["use_devices"])
 os.environ["CUDA_VISIBLE_DEVICES"] = use_devices
 os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
-import shutil
+
 import numpy as np
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
-
 import tensorflow as tf
 import tensorflow.keras as keras
+
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
 from deeplab_v3plus_tfkeras.metrics import make_IoU
 from deeplab_v3plus_tfkeras.label import Label
@@ -33,7 +34,6 @@ label_file_path = conf["label_file_path"]
 train_data_paths = conf["train_data_paths"]
 valid_data_paths = conf["valid_data_paths"]
 
-# n_gpu = 4
 batch_size = conf["batch_size"]
 n_epochs = conf["n_epochs"]
 output_activation = conf["output_activation"]
@@ -61,7 +61,7 @@ preprocess = keras.applications.xception.preprocess_input
 # make train dataset
 if train_data_types[0] == "dir":
     train_x_paths, train_y_paths = make_xy_path_list(train_data_paths)
-    n_train_data=len(train_x_paths)
+    n_train_data = len(train_x_paths)
     train_dataset, train_map_f = my_generator.make_path_generator(
         train_x_paths,
         train_y_paths,
@@ -74,28 +74,24 @@ if train_data_types[0] == "dir":
 
 else:
     train_x, train_y = make_xy_array(train_data_paths)
-    n_train_data=len(train_x)
+    n_train_data = len(train_x)
     train_dataset, train_map_f = my_generator.make_array_generator(
         train_x,
         train_y,
         preprocess=preprocess,
-        augmentation=True,
-        )
+        augmentation=True)
 
 
 train_dataset = train_dataset.shuffle(n_train_data)
-train_dataset = train_dataset.map(train_map_f,
-    num_parallel_calls=tf.data.experimental.AUTOTUNE)
+train_dataset = train_dataset.map(train_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size)
 train_dataset = train_dataset.prefetch(
     buffer_size=tf.data.experimental.AUTOTUNE)
 
-
-
 # make valid dataset
 if valid_data_types[0] == "dir":
     valid_x_paths, valid_y_paths = make_xy_path_list(valid_data_paths)
-    n_valid_data=len(valid_x_paths)
+    n_valid_data = len(valid_x_paths)
     valid_dataset, valid_map_f = my_generator.make_path_generator(
         valid_x_paths,
         valid_y_paths,
@@ -107,7 +103,7 @@ if valid_data_types[0] == "dir":
         data_type="polygon")
 else:
     valid_x, valid_y = make_xy_array(valid_data_paths)
-    n_valid_data=len(valid_x)
+    n_valid_data = len(valid_x)
     valid_dataset, valid_map_f = my_generator.make_array_generator(
         valid_x,
         valid_y,
@@ -115,14 +111,10 @@ else:
         augmentation=False)
 
 
-valid_dataset = valid_dataset.map(valid_map_f,
-    num_parallel_calls=tf.data.experimental.AUTOTUNE)
+valid_dataset = valid_dataset.map(valid_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 valid_dataset = valid_dataset.batch(batch_size)
 valid_dataset = valid_dataset.prefetch(
     buffer_size=tf.data.experimental.AUTOTUNE)
-
-
-
 
 # define loss function
 if output_activation == "softmax":
@@ -135,10 +127,10 @@ if output_activation == "softmax":
             my_loss_func.make_focal_loss(label.n_labels,
                                          fl_alpha_list,
                                          fl_gamma_list)
-    elif loss =="GDL":
+    elif loss == "GDL":
         loss_function = my_loss_func.generalized_dice_loss
     else:
-        raise Exception(loss+" is not supported.")
+        raise Exception(loss + " is not supported.")
 
 elif output_activation == "sigmoid":
     if loss == "CE":
@@ -151,10 +143,10 @@ elif output_activation == "sigmoid":
                                          fl_alpha_list,
                                          fl_gamma_list)
 
-    elif loss =="GDL":
+    elif loss == "GDL":
         loss_function = my_loss_func.generalized_dice_loss
     else:
-        raise Exception(loss+" is not supported.")
+        raise Exception(loss + " is not supported.")
 
 # define optimizer
 if optimizer == "Adam":
@@ -178,7 +170,7 @@ if n_gpus >= 2:
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
         encoder = keras.applications.Xception(
-            input_shape=(*image_size,3),
+            input_shape=(*image_size, 3),
             weights="imagenet",
             include_top=False)
 
@@ -198,7 +190,7 @@ if n_gpus >= 2:
                       )
 else:
     encoder = keras.applications.Xception(
-        input_shape=(*image_size,3),
+        input_shape=(*image_size, 3),
         weights="imagenet",
         include_top=False)
 
@@ -218,10 +210,10 @@ else:
                   )
 model.summary()
 
-filepath = os.path.join(out_dir,'best_model.h5')
+filepath = os.path.join(out_dir, 'best_model.h5')
 cp_cb = keras.callbacks.ModelCheckpoint(
     filepath,
-    #monitor='IoU',
+    # monitor='IoU',
     monitor='val_IoU',
     verbose=1,
     save_best_only=True,
@@ -259,21 +251,20 @@ hists = np.array(hists).T
 hists_df = pd.DataFrame(hists, columns=["loss", "val_loss", "IoU", "val_IoU"])
 hists_df.to_csv(os.path.join(out_dir, "training_log.csv"), index=False)
 
-plt.figure(figsize=(20,10))
+plt.figure(figsize=(20, 10))
 
-plt.subplot(1,2,1)
+plt.subplot(1, 2, 1)
 plt.plot(hists_df["loss"], label="loss")
 plt.plot(hists_df["val_loss"], label="val_loss")
 plt.yscale("log")
 plt.legend()
 plt.grid()
 
-plt.subplot(1,2,2)
+plt.subplot(1, 2, 2)
 plt.plot(hists_df["IoU"], label="IoU")
 plt.plot(hists_df["val_IoU"], label="val_IoU")
 plt.legend()
 plt.grid()
-plt.savefig(os.path.join(out_dir,'losscurve.png'))
+plt.savefig(os.path.join(out_dir, 'losscurve.png'))
 
-
-model.save(os.path.join(out_dir,'final_epoch.h5'))
+model.save(os.path.join(out_dir, 'final_epoch.h5'))

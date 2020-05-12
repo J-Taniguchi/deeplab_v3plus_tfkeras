@@ -11,7 +11,7 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.utils import get_custom_objects
+# from tensorflow.keras.utils import get_custom_objects
 import numpy as np
 from tqdm import tqdm
 
@@ -22,9 +22,9 @@ from deeplab_v3plus_tfkeras.input_data_processing import check_data_paths
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_array
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.metrics import make_IoU
-import deeplab_v3plus_tfkeras.loss as my_loss_func
-import deeplab_v3plus_tfkeras.data_gen as my_generator
+# from deeplab_v3plus_tfkeras.metrics import make_IoU
+# import deeplab_v3plus_tfkeras.loss as my_loss_func
+# import deeplab_v3plus_tfkeras.data_gen as my_generator
 
 model_dir = conf["model_dir"]
 
@@ -51,8 +51,8 @@ n_gpus = len(use_devices.split(','))
 
 batch_size = batch_size * n_gpus
 
-model_file = os.path.join(model_dir,'best_model.h5')
-if n_gpus >=2:
+model_file = os.path.join(model_dir, 'best_model.h5')
+if n_gpus >= 2:
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
         model = keras.models.load_model(model_file, compile=False)
@@ -126,10 +126,9 @@ if "test" in which_to_inference:
         mode = "max_confidence"
         print(mode)
         x = []
-        y =[]
+        y = []
 
         for x_path in tqdm(x_paths):
-        #for i in tqdm(np.arange(0, len(valid_x_paths), 1000)):
             x0, y0 = inference_large_img(
                 x_path,
                 model,

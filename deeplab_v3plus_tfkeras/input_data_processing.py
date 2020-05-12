@@ -1,13 +1,15 @@
 import os
-import sys
+# import sys
+
 import h5py
 import numpy as np
 from glob import glob
 
+
 def check_data_paths(data_paths, mixed_type_is_error=False):
     is_path = False
     is_h5 = False
-    out=[]
+    out = []
     for data_path in data_paths:
         if os.path.isdir(data_path):
             is_path = True
@@ -22,6 +24,7 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
 
     return out
 
+
 def make_xy_path_list(data_paths, img_exts=["png"]):
     x = []
     y = []
@@ -35,7 +38,7 @@ def make_xy_path_list(data_paths, img_exts=["png"]):
     for fpath in x:
         base_name = os.path.basename(fpath)
         image_name = os.path.splitext(base_name)[0]
-        p = os.path.join(data_path, image_name+'.json')
+        p = os.path.join(data_path, image_name + '.json')
         if os.path.exists(p):
             y.append(p)
         else:
