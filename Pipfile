@@ -1,0 +1,24 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+flake8 = "*"
+
+[packages]
+pyyaml = "*"
+tensorflow = "*"
+numpy = "*"
+pillow = "*"
+opencv-python = "*"
+matplotlib = "*"
+glob3 = "*"
+pandas = "*"
+joblib = "*"
+tqdm = "*"
+numba = "*"
+h5py = "*"
+
+[requires]
+python_version = "3.7"
