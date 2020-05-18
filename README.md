@@ -47,13 +47,13 @@ visualise thre inference results written in  which_to_visualise.
 
 # Caution
 
-This package is not work now. (For tf2.2)
+This package is not work now. (working for tf2.2)
 
 Due to various problems, the program has been rewritten to give the teacher data as an image instead of a JSON.
 
 use omake/convert_labelme_json_to_palette_png.py .
 
-'''
+```
 usage: convert_labelme_json_to_palette_png.py [-h]
                                               label_list_path input_dir
                                               output_dir
@@ -67,4 +67,4 @@ positional arguments:
 
 optional arguments:
   -h, --help       show this help message and exit
-'''
+```
