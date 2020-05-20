@@ -18,9 +18,7 @@ from tqdm import tqdm
 from deeplab_v3plus_tfkeras.data_utils import make_xy_from_data_paths
 from deeplab_v3plus_tfkeras.data_utils import inference_large_img
 from deeplab_v3plus_tfkeras.data_utils import save_inference_results
-from deeplab_v3plus_tfkeras.input_data_processing import check_data_paths
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
-from deeplab_v3plus_tfkeras.input_data_processing import make_xy_array
 from deeplab_v3plus_tfkeras.label import Label
 # from deeplab_v3plus_tfkeras.metrics import make_IoU
 # import deeplab_v3plus_tfkeras.loss as my_loss_func
@@ -29,20 +27,10 @@ from deeplab_v3plus_tfkeras.label import Label
 model_dir = conf["model_dir"]
 
 label_file_path = conf["label_file_path"]
-train_data_paths = conf["train_data_paths"]
-valid_data_paths = conf["valid_data_paths"]
-test_data_paths = conf["test_data_paths"]
 
 batch_size = conf["batch_size"]
 image_size = conf["image_size"]
 
-print(test_data_paths)
-if train_data_paths is not None:
-    train_data_types = check_data_paths(train_data_paths)
-if valid_data_paths is not None:
-    valid_data_types = check_data_paths(valid_data_paths)
-if test_data_paths is not None:
-    test_data_types = check_data_paths(test_data_paths)
 
 # loss = conf["loss"]
 which_to_inference = conf["which_to_inference"]
@@ -67,69 +55,55 @@ last_activation = model.layers[-1].name
 
 
 if "train" in which_to_inference:
-    if train_data_types[0] == "dir":
-        x_paths, y_paths = make_xy_path_list(train_data_paths)
-        x, y = make_xy_from_data_paths(x_paths,
-                                       y_paths,
-                                       image_size,
-                                       label,
-                                       "polygon",
-                                       resize_or_crop="crop")
-    else:
-        x, y = make_xy_array(train_data_paths)
+    x_paths, y_paths = make_xy_path_list(conf["train_x_paths"], conf["train_y_paths"])
+    x, y = make_xy_from_data_paths(x_paths,
+                                   y_paths,
+                                   image_size,
+                                   label,
+                                   "image",
+                                   resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "train_inference.h5")
     save_inference_results(fpath,
                            x=x,
-                           pred=pred,
                            y=y,
+                           pred=pred,
                            last_activation=last_activation)
 
-
 if "valid" in which_to_inference:
-    if valid_data_types[0] == "dir":
-        x_paths, y_paths = make_xy_path_list(valid_data_paths)
-        x, y = make_xy_from_data_paths(x_paths,
-                                       y_paths,
-                                       image_size,
-                                       label,
-                                       "polygon",
-                                       resize_or_crop="crop")
-    else:
-        x, y = make_xy_array(valid_data_paths)
-
+    x_paths, y_paths = make_xy_path_list(conf["valid_x_paths"], conf["valid_y_paths"])
+    x, y = make_xy_from_data_paths(x_paths,
+                                   y_paths,
+                                   image_size,
+                                   label,
+                                   "image",
+                                   resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "valid_inference.h5")
     save_inference_results(fpath,
                            x=x,
-                           pred=pred,
                            y=y,
+                           pred=pred,
                            last_activation=last_activation)
 
-
 if "test" in which_to_inference:
-    for i, test_data_path in enumerate(test_data_paths):
-        if test_data_types[i] == "dir":
-            test_name = test_data_path.split(os.sep)[-1]
-            x_paths, y_paths = make_xy_path_list([test_data_path])
-            x, y = make_xy_from_data_paths(x_paths,
-                                           y_paths,
-                                           image_size,
-                                           label,
-                                           "polygon",
-                                           resize_or_crop="crop")
-        else:
-            basename = os.path.basename(test_data_path)
-            test_name = os.path.splitext(basename)
-            x, y = make_xy_array([test_data_path])
+    for i, test_data_path in enumerate(conf["test_x_paths"]):
+        test_name = test_data_path.split(os.sep)[-1]
+        x_paths, _ = make_xy_path_list(conf["test_x_paths"], None)
+        """
+        x = make_xy_from_data_paths(x_paths,
+                                    None,
+                                    image_size,
+                                    label,
+                                    "image",
+                                    resize_or_crop="crop")
+        """
 
         mode = "max_confidence"
-        print(mode)
         x = []
-        y = []
-
+        pred = []
         for x_path in tqdm(x_paths):
-            x0, y0 = inference_large_img(
+            x0, pred0 = inference_large_img(
                 x_path,
                 model,
                 preprocess,
@@ -137,13 +111,13 @@ if "test" in which_to_inference:
                 threshold=0.5,
                 batch_size=batch_size)
             x.append(x0)
-            y.append(y0)
+            pred.append(pred0)
 
         x = np.array(x)
-        y = np.array(y)
+        pred = np.array(pred)
 
         fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
         save_inference_results(fpath,
                                x=x,
-                               pred=y,
+                               pred=pred,
                                last_activation=last_activation)

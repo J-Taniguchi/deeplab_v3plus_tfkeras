@@ -25,24 +25,29 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
     return out
 
 
-def make_xy_path_list(data_paths, img_exts=["png"]):
+def make_xy_path_list(x_paths, y_paths, img_exts=["png", "jpg"]):
     x = []
     y = []
-    for data_path in data_paths:
+    for i, x_path in enumerate(x_paths):
+        if y_paths is not None:
+            y_path = y_paths[i]
+
         x0 = []
         for ext in img_exts:
-            x0.extend(glob(os.path.join(data_path, '*.' + ext)))
+            x0.extend(glob(os.path.join(x_path, '*.' + ext)))
         x0.sort()
-        x.extend(x0)
 
-    for fpath in x:
-        base_name = os.path.basename(fpath)
-        image_name = os.path.splitext(base_name)[0]
-        p = os.path.join(data_path, image_name + '.json')
-        if os.path.exists(p):
-            y.append(p)
-        else:
-            y.append(None)
+        if y_paths is not None:
+            for fpath in x0:
+                base_name = os.path.basename(fpath)
+                image_name = os.path.splitext(base_name)[0]
+                p = os.path.join(y_path, image_name + '.png')
+                if os.path.exists(p):
+                    y.append(p)
+                else:
+                    x0.remove(fpath)
+                    print("{} dose not exist. {} is removed from dataset.".format(p, fpath))
+        x.extend(x0)
     return x, y
 
 

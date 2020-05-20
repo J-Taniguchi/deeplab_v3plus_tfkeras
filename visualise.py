@@ -1,7 +1,7 @@
 import os
 import sys
 import joblib
-n_jobs=36
+n_jobs = 36
 import yaml
 
 from deeplab_v3plus_tfkeras.label import Label
@@ -17,9 +17,9 @@ with open(conf_file, "r") as f:
 
 model_dir = conf["model_dir"]
 label_file_path = conf["label_file_path"]
-train_data_paths = conf["train_data_paths"]
-valid_data_paths = conf["valid_data_paths"]
-test_data_paths = conf["test_data_paths"]
+# train_data_paths = conf["train_data_paths"]
+# valid_data_paths = conf["valid_data_paths"]
+test_x_paths = conf["test_x_paths"]
 
 which_to_visualise = conf["which_to_visualise"]
 
@@ -27,10 +27,10 @@ fig_dir = os.path.join(model_dir, "figure")
 label = Label(label_file_path)
 
 
-#train data
+# train data
 if "train" in which_to_visualise:
     fig_out_dir = os.path.join(fig_dir, "train")
-    os.makedirs(fig_out_dir, exist_ok = True)
+    os.makedirs(fig_out_dir, exist_ok=True)
 
     fpath = os.path.join(model_dir, "train_inference.h5")
     x, y, pred, last_activation = load_inference_results(fpath)
@@ -55,10 +55,10 @@ if "train" in which_to_visualise:
             last_activation,
             label) for i in range(x.shape[0]))
 
-#valid data
+# valid data
 if "valid" in which_to_visualise:
     fig_out_dir = os.path.join(fig_dir, "valid")
-    os.makedirs(fig_out_dir, exist_ok = True)
+    os.makedirs(fig_out_dir, exist_ok=True)
 
     fpath = os.path.join(model_dir, "valid_inference.h5")
     x, y, pred, last_activation = load_inference_results(fpath)
@@ -82,13 +82,13 @@ if "valid" in which_to_visualise:
             fig_out_dir,
             last_activation,
             label) for i in range(x.shape[0]))
-#test data
+# test data
 if "test" in which_to_visualise:
-    for test_data_path in test_data_paths:
+    for test_data_path in test_x_paths:
         print(test_data_path)
         test_name = test_data_path.split(os.sep)[-1]
         fig_out_dir = os.path.join(fig_dir, "test_" + test_name)
-        os.makedirs(fig_out_dir, exist_ok = True)
+        os.makedirs(fig_out_dir, exist_ok=True)
 
         fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
         x, _, pred, last_activation = load_inference_results(fpath)
@@ -98,8 +98,10 @@ if "test" in which_to_visualise:
                                           threshold=0.5,
                                           activation=last_activation)
 
-        joblib.Parallel(n_jobs=n_jobs, verbose=10, backend="threading")(
-            joblib.delayed(visualise_pred)(
+        joblib.Parallel(
+            n_jobs=n_jobs,
+            verbose=10,
+            backend="threading")(joblib.delayed(visualise_pred)(
                 i,
                 x,
                 y_pred,

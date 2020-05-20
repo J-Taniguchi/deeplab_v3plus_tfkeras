@@ -12,7 +12,15 @@ def augmentor(image, mask):
         lambda: (tf.image.flip_left_right(image),
                  tf.image.flip_left_right(mask)),
         lambda: (image, mask))
-    image = tf.image.flip_left_right(image)
+
+    should_apply_op = tf.cast(
+        tf.floor(tf.random.uniform([], dtype=tf.float32) + 0.5), tf.bool)
+    image, mask = tf.cond(
+        should_apply_op,
+        lambda: (tf.image.random_flip_up_down(image),
+                 tf.image.random_flip_up_down(mask)),
+        lambda: (image, mask))
+
     image = tf.image.random_hue(image, 0.5)
     image = tf.image.random_saturation(image, 0.3, 1.0)
     image = tf.image.random_jpeg_quality(image, 90, 100)

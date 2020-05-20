@@ -130,7 +130,7 @@ def convert_y_to_image_array(y, label, threshold=0.5, activation="softmax"):
                                  now_img.shape[1],
                                  3), np.uint8)
             under_threshold = now_img.max(2) < threshold
-            now_img[i, under_threshold, 0] = 1.0
+            now_img[under_threshold, 0] = 1.0
             max_category = now_img.argmax(2)
             for j in range(label.n_labels):
                 out_img0[max_category == j] = label.color[j, :]

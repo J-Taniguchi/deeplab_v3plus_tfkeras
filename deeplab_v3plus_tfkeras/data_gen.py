@@ -43,8 +43,6 @@ def make_array_generator(x,
     return tf.data.Dataset.from_tensor_slices((x, y)), wrap_mapf
 
 
-
-
 def make_path_generator(img_paths,
                         seg_img_paths,
                         image_size,
@@ -55,49 +53,50 @@ def make_path_generator(img_paths,
                         data_type="image"):
     def map_f(x_path, y_path):
         x, y = make_xy_from_data_paths(
-            [x_path[i]],
-            [y_path[i]],
+            [x_path],
+            [y_path],
             image_size,
             label,
             data_type=data_type,
             resize_or_crop=resize_or_crop)
+        x = x[0]
+        y = y[0]
 
-        if augmentation == True:
+        if augmentation is True:
             # image_size for data_augment is (height, width)
             x, y = data_augment(x,
                                 y,
                                 image_size=image_size,
                                 p=0.95)
+
         x = tf.cast(x, tf.float32)
         y = tf.cast(y, tf.float32)
-        if preprocess == None:
-            x = (x/127.5) - 1
+
+        if preprocess is None:
+            x = (x / 127.5) - 1
         else:
             x = preprocess(x)
+
         return x, y
 
     def wrap_mapf(x_path, y_path):
         x_out, y_out = tf.py_function(map_f,
                                       inp=[x_path, y_path],
                                       Tout=(tf.float32, tf.float32))
-        x_out.set_shape([None,None,None,None])
-        y_out.set_shape([None,None,None,None])
         return x_out, y_out
-
 
     ds = tf.data.Dataset.from_tensor_slices((img_paths, seg_img_paths))
     return ds, wrap_mapf
 
 
-
 def make_path_generator_old(img_paths,
-                        seg_img_paths,
-                        image_size,
-                        label: Label,
-                        preprocess=None,
-                        augmentation=True,
-                        resize_or_crop="resize",
-                        data_type="image"):
+                            seg_img_paths,
+                            image_size,
+                            label: Label,
+                            preprocess=None,
+                            augmentation=True,
+                            resize_or_crop="resize",
+                            data_type="image"):
 
     def path_generator():
 
@@ -111,15 +110,15 @@ def make_path_generator_old(img_paths,
                 label,
                 data_type=data_type,
                 resize_or_crop=resize_or_crop)
-            if augmentation == True:
+            if augmentation is True:
                 x, y = data_augment(x,
                                     y,
                                     image_size=image_size,
                                     p=0.95)
 
-            if preprocess == None:
-                x = (x/127.5)-1
+            if preprocess is None:
+                x = (x / 127.5) - 1
             else:
                 x = preprocess(x)
-            yield x[0,:,:,:], y[0,:,:,:]
+            yield x[0, :, :, :], y[0, :, :, :]
     return path_generator

@@ -1,6 +1,7 @@
 import json
 # import copy
 
+import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageDraw
 import cv2
@@ -245,6 +246,101 @@ def make_xy_from_data_paths(x_paths,
     x = []
     crop_areas = []
     for i, x_path in enumerate(x_paths):
+        image = tf.io.read_file(x_path)
+        image = tf.image.decode_image(image, channels=3)
+        # image = tf.image.convert_image_dtype(image, tf.float32)
+        if resize_or_crop == "resize":
+            image = tf.image.resize(image, image_size[::-1])
+        elif resize_or_crop == "crop":
+            crop_area = get_random_crop_area(image.shape[0:2], image_size[::-1])
+            image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
+            crop_areas.append(crop_area)
+        elif resize_or_crop is False:
+            pass
+        else:
+            raise Exception("resize_or_crop must be 'resize' or 'crop'.")
+        out = np.zeros((image_size[1], image_size[0], 3))
+        out[0:image.shape[0], 0:image.shape[1]] = image[:, :]
+        x.append(out)
+    x = tf.convert_to_tensor(x)
+    if y_paths is None:
+        return x
+
+    y = []
+    for i, y_path in enumerate(y_paths):
+        crop_area = crop_areas[i]
+        if y_path is None:
+            y.append(np.zeros((*image_size[::-1], label.n_labels), np.int32))
+            continue
+
+        if resize_or_crop == "resize":
+            if data_type == "image":
+                image = tf.io.read_file(y_path)
+                image = tf.image.decode_image(image, channels=3)
+
+                y0 = convert_image_array_to_y(image, label)
+                y.append(y0)
+            elif data_type == "index_png":
+                image = Image.open(y_path)
+                image = image.resize(image_size)
+                image = image.convert('RGB')
+                image = np.array(image, np.int32)[:, :, :3]
+                y0 = convert_image_array_to_y(image, label)
+                y.append(y0)
+            elif data_type == "polygon":
+                y0 = make_y_from_poly_json_path(y_path, image_size, label)
+                y.append(y0)
+            else:
+                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
+        elif resize_or_crop == "crop":
+            if data_type == "image":
+                image = tf.io.read_file(y_path)
+                image = tf.image.decode_image(image, channels=3)
+                image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
+                y0 = convert_image_array_to_y(image, label)
+                out = np.zeros((image_size[1], image_size[0], label.n_labels))
+                out[0:image.shape[0], 0:image.shape[1]] = y0[:, :]
+                y.append(out)
+            elif data_type == "index_png":
+                image = Image.open(y_path)
+                image = image.crop(crop_areas[i])
+                image = image.convert('RGB')
+                image = np.array(image, np.int32)[:, :, :3]
+                y0 = convert_image_array_to_y(image, label)
+                y.append(y0)
+            elif data_type == "polygon":
+                y0 = make_y_from_poly_json_path(y_path, image_size, label, crop_areas[i])
+                y.append(y0)
+            else:
+                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
+
+    y = tf.convert_to_tensor(y)
+    return x, y
+
+
+def make_xy_from_data_paths_old(x_paths,
+                                y_paths,
+                                image_size,
+                                label,
+                                data_type,
+                                resize_or_crop="resize"):
+    """make x and y from data paths.
+
+    Args:
+        x_paths (list): list of path to x image
+        y_paths (list): list of path to y image or json. if None, y is exported as None
+        image_size (tuple): model input and output size.(width, height)
+        label (Label): class "Label" written in label.py
+        data_type (str): select "image" or "index_png" or "polygon"
+        resize_or_crop (str): select "resize" or "crop". Defaults to "resize".
+
+    Returns:
+        np.rray, np.array: x and y
+
+    """
+    x = []
+    crop_areas = []
+    for i, x_path in enumerate(x_paths):
         image = Image.open(x_path)
         if resize_or_crop == "resize":
             image = image.resize(image_size)
@@ -339,7 +435,9 @@ def make_y_from_poly_json_path(data_path,
             else:
                 y[:, :, i] = np.zeros(image_size, np.float32)
     else:
-        with open(data_path) as d:
+        # with open(data_path) as d:
+        # with tf.io.gfile.GFile(data_path) as d:
+        with tf.io.read_file(data_path) as d:
             poly_json = json.load(d)
         org_image_size = (poly_json["imageWidth"], poly_json["imageHeight"])
         n_poly = len(poly_json['shapes'])
@@ -383,9 +481,15 @@ def convert_image_array_to_y(image_array, label):
         type: .
 
     """
-    y = np.zeros((*(image_array).shape[:2], label.n_labels), np.float32)
+    # y = tf.zeros((*(image_array).shape[:2], label.n_labels), np.float32)
+    # y = tf.zeros((*(image_array).shape[:2], 0), np.float32)
+    # print(y.shape)
+    y = []
     for i in range(label.n_labels):
-        y[:, :, i] = np.all(np.equal(image_array, label.color[i, :]), axis=2).astype(np.float32)
+        # y[:, :, i] = tf.reduce_all(tf.equal(image_array, label.color[i, :]), axis=2)
+        y.append(tf.reduce_all(tf.equal(image_array, label.color[i, :]), axis=2))
+        # y = tf.concat([y, tmp], axis=2)
+    y = tf.stack(y, axis=2)
     return y
 
 
@@ -446,14 +550,12 @@ def save_inference_results(fpath, x, pred, last_activation, y=None):
 
                 if y is not None:
                     f.create_dataset("y/{}".format(i), data=y[i])
-                else:
-                    if i == 0:
-                        f.create_dataset("y", data=y)
 
         else:
             f.create_dataset("dataset_type", data="array")
             f.create_dataset("x", data=x)
-            f.create_dataset("y", data=y)
+            if y is not None:
+                f.create_dataset("y", data=y)
             f.create_dataset("pred", data=pred)
         f.create_dataset("last_activation", data=last_activation)
 
@@ -467,6 +569,8 @@ def load_inference_results(fpath):
             x = []
             if have_y:
                 y = []
+            else:
+                y = None
             pred = []
             n_images = f["n_images"][()]
             for i in range(n_images):
@@ -474,13 +578,13 @@ def load_inference_results(fpath):
                 pred.append(f["pred/{}".format(i)][()])
                 if have_y:
                     y.append(f["y/{}".format(i)][()])
-                else:
-                    if i == 0:
-                        y = f["y"][()]
 
         else:
             x = f["x"][()]
-            y = f["y"][()]
+            if have_y:
+                y = f["y"][()]
+            else:
+                y = None
             pred = f["pred"][()]
         last_activation = f["last_activation"][()]
     return x, y, pred, last_activation
