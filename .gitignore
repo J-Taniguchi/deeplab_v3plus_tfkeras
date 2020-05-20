@@ -1,5 +1,5 @@
 .ipynb_checkpoints/
 src/__pycache__/
 __pycache__/
-.vscode/launch.json
+.vscode/
 conf_test.yml
