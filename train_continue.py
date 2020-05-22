@@ -16,12 +16,9 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
-# from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
 from deeplab_v3plus_tfkeras.metrics import make_IoU
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.input_data_processing import check_data_paths
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
-from deeplab_v3plus_tfkeras.input_data_processing import make_xy_array
 import deeplab_v3plus_tfkeras.data_gen as my_generator
 import deeplab_v3plus_tfkeras.loss as my_loss_func
 tf.compat.v1.enable_eager_execution()
@@ -30,8 +27,6 @@ matplotlib.use('Agg')
 out_dir = conf["model_dir"]
 model_dir = conf["model_dir"]
 label_file_path = conf["label_file_path"]
-train_data_paths = conf["train_data_paths"]
-valid_data_paths = conf["valid_data_paths"]
 
 batch_size = conf["batch_size"]
 n_epochs = conf["n_epochs"]
@@ -48,8 +43,6 @@ if class_weight is not None:
 
 hists_old = pd.read_csv(os.path.join(model_dir, "training_log.csv"))
 initial_epoch = len(hists_old)
-train_data_types = check_data_paths(train_data_paths, mixed_type_is_error=True)
-valid_data_types = check_data_paths(valid_data_paths, mixed_type_is_error=True)
 
 n_gpus = len(use_devices.split(','))
 batch_size = batch_size * n_gpus
@@ -57,60 +50,40 @@ batch_size = batch_size * n_gpus
 preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
-if train_data_types[0] == "dir":
-    train_x_paths, train_y_paths = make_xy_path_list(train_data_paths)
-    n_train_data = len(train_x_paths)
-    train_dataset, train_map_f = my_generator.make_path_generator(
-        train_x_paths,
-        train_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=True,
-        resize_or_crop="crop",
-        data_type="polygon")
-
-else:
-    train_x, train_y = make_xy_array(train_data_paths)
-    n_train_data = len(train_x)
-    train_dataset, train_map_f = my_generator.make_array_generator(
-        train_x,
-        train_y,
-        preprocess=preprocess,
-        augmentation=True)
+train_x_paths, train_y_paths = make_xy_path_list(conf["train_x_paths"], conf["train_y_paths"])
+n_train_data = len(train_x_paths)
+train_dataset, train_map_f = my_generator.make_path_generator(
+    train_x_paths,
+    train_y_paths,
+    image_size,
+    label,
+    preprocess,
+    augmentation=True,
+    # augmentation=False,
+    resize_or_crop="crop",
+    data_type="image")
 
 train_dataset = train_dataset.shuffle(n_train_data)
 train_dataset = train_dataset.map(train_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size)
-train_dataset = train_dataset.prefetch(
-    buffer_size=tf.data.experimental.AUTOTUNE)
+train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # make valid dataset
-if valid_data_types[0] == "dir":
-    valid_x_paths, valid_y_paths = make_xy_path_list(valid_data_paths)
-    n_valid_data = len(valid_x_paths)
-    valid_dataset, valid_map_f = my_generator.make_path_generator(
-        valid_x_paths,
-        valid_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=False,
-        resize_or_crop="crop",
-        data_type="polygon")
-else:
-    valid_x, valid_y = make_xy_array(valid_data_paths)
-    n_valid_data = len(valid_x)
-    valid_dataset, valid_map_f = my_generator.make_array_generator(
-        valid_x,
-        valid_y,
-        preprocess=preprocess,
-        augmentation=False)
+valid_x_paths, valid_y_paths = make_xy_path_list(conf["valid_x_paths"], conf["valid_y_paths"])
+n_valid_data = len(valid_x_paths)
+valid_dataset, valid_map_f = my_generator.make_path_generator(
+    valid_x_paths,
+    valid_y_paths,
+    image_size,
+    label,
+    preprocess,
+    augmentation=False,
+    resize_or_crop="crop",
+    data_type="image")
 
 valid_dataset = valid_dataset.map(valid_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 valid_dataset = valid_dataset.batch(batch_size)
-valid_dataset = valid_dataset.prefetch(
-    buffer_size=tf.data.experimental.AUTOTUNE)
+valid_dataset = valid_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # define loss function
 if output_activation == "softmax":
