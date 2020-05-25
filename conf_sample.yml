@@ -2,21 +2,26 @@
 model_dir: path/to/model_dir
 
 label_file_path: path/to/label.csv
-train_data_paths:
-    - path/to/train_data_dir1
-    - path/to/train_data_dir2
-    #- path/to/train_data1.h5
-    #- path/to/train_data2.h5
-valid_data_paths:
-    - path/to/valid_data_dir1
-    - path/to/valid_data_dir2
-    #- path/to/valid_data1.h5
-    #- path/to/valid_data2.h5
+train_x_paths:
+    - path/to/train_x_dir1
+    - path/to/train_x_dir2
+
+train_y_paths:
+    - path/to/train_y_dir1
+    - path/to/train_y_dir2
+
+valid_x_paths:
+    - path/to/valid_x_dir1
+    - path/to/valid_x_dir2
+
+valid_y_paths:
+    - path/to/valid_y_dir1
+    - path/to/valid_y_dir2
 
 # below is to inference and visualise.
-test_data_paths:
-    - path/to/test_data_dir1
-    - path/to/test_data_dir2
+test_x_paths:
+    - path/to/test_x_dir1
+    - path/to/test_x_dir2
 #if you don't use the value, write "~" like below.
 #test_data_paths: ~
 
