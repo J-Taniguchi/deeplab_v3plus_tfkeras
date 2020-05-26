@@ -1,6 +1,7 @@
 # deeplab_v3plus_tfkeras
 
-Programs for semantic segmentation. ~~Useage is written in ipynb files.~~
+Programs for semantic segmentation.
+If you want to use Jupyter Notebook, see this [branch](https://github.com/J-Taniguchi/deeplab_v3plus_tfkeras/tree/jupyter)
 
 use like run_sample.sh.
 
