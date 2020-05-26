@@ -17,8 +17,6 @@ with open(conf_file, "r") as f:
 
 model_dir = conf["model_dir"]
 label_file_path = conf["label_file_path"]
-# train_data_paths = conf["train_data_paths"]
-# valid_data_paths = conf["valid_data_paths"]
 test_x_paths = conf["test_x_paths"]
 
 which_to_visualise = conf["which_to_visualise"]
@@ -82,6 +80,7 @@ if "valid" in which_to_visualise:
             fig_out_dir,
             last_activation,
             label) for i in range(x.shape[0]))
+
 # test data
 if "test" in which_to_visualise:
     for test_data_path in test_x_paths:

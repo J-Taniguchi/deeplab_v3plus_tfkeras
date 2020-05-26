@@ -11,7 +11,6 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 import tensorflow as tf
 import tensorflow.keras as keras
-# from tensorflow.keras.utils import get_custom_objects
 import numpy as np
 from tqdm import tqdm
 
@@ -20,9 +19,7 @@ from deeplab_v3plus_tfkeras.data_utils import inference_large_img
 from deeplab_v3plus_tfkeras.data_utils import save_inference_results
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
 from deeplab_v3plus_tfkeras.label import Label
-# from deeplab_v3plus_tfkeras.metrics import make_IoU
-# import deeplab_v3plus_tfkeras.loss as my_loss_func
-# import deeplab_v3plus_tfkeras.data_gen as my_generator
+
 
 model_dir = conf["model_dir"]
 

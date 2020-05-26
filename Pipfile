@@ -19,6 +19,7 @@ joblib = "*"
 tqdm = "*"
 numba = "*"
 h5py = "*"
+jupyter = "*"
 
 [requires]
 python_version = "3.7"
