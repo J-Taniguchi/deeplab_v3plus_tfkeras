@@ -4,14 +4,12 @@ Programs for semantic segmentation. ~~Useage is written in ipynb files.~~
 
 use like run_sample.sh.
 
-- you can make annotation file as
-  - ~~RGB image~~
-  - ~~index png image(like pascal voc2012)~~
-  - polygon ([labelme](https://github.com/wkentaro/labelme) json file.)
-    - please work with --nodata flag like ```labelme --nodata```
-- It is better to modify data_augment.py for your objective.
-  - ~~[albumentations](https://github.com/albumentations-team/albumentations) is used for data augment.~~
+you can make annotation file as RGB image
 
+- you can use polygon for annotation.([labelme](https://github.com/wkentaro/labelme) json file.)
+  - please work with --nodata flag like ```labelme --nodata```
+  - aftar make jsons, use omake/convert_labelme_json_to_palette_png.py
+- It is better to modify data_augment.py for your objective.
 
 You can use pipenv to create virtual environment.
 ``` bash
@@ -20,7 +18,7 @@ pipenv sync
 
 # train.py
 
-Training with the data written in train_data_paths, watch validation with the data written in  valid_data_paths.
+Training with the data written in train_x_paths and train_y_paths, watch validation with the data written in valid_x_paths and valid_y_paths.
 
 Trained model and training log are written in model_dir.
 
@@ -45,13 +43,7 @@ Inference results are written in model_dir with h5 format.  This file is use for
 visualise thre inference results written in  which_to_visualise.
 
 
-# Caution
-
-This package is not work now. (working for tf2.2)
-
-Due to various problems, the program has been rewritten to give the teacher data as an image instead of a JSON.
-
-use omake/convert_labelme_json_to_palette_png.py .
+# omake/convert_labelme_json_to_palette_png.py
 
 ```
 usage: convert_labelme_json_to_palette_png.py [-h]
