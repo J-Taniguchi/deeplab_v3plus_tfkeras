@@ -17,8 +17,8 @@ def augmentor(image, mask):
         tf.floor(tf.random.uniform([], dtype=tf.float32) + 0.5), tf.bool)
     image, mask = tf.cond(
         should_apply_op,
-        lambda: (tf.image.random_flip_up_down(image),
-                 tf.image.random_flip_up_down(mask)),
+        lambda: (tf.image.flip_up_down(image),
+                 tf.image.flip_up_down(mask)),
         lambda: (image, mask))
 
     image = tf.image.random_hue(image, 0.5)
@@ -36,8 +36,7 @@ def data_augment(image, mask, image_size, p):
     # if len(mask.shape) != 3:
     #    raise Exception("dimension of masks for data_augment must be 3")
     p = float(p)
-    should_apply_op = tf.cast(
-        tf.floor(tf.random.uniform([], dtype=tf.float32) + p), tf.bool)
+    should_apply_op = tf.cast(tf.floor(tf.random.uniform([], dtype=tf.float32) + p), tf.bool)
     image, mask = tf.cond(
         should_apply_op,
         lambda: augmentor(image, mask),
