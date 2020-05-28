@@ -1,9 +1,7 @@
-import json
 # import copy
 
 import tensorflow as tf
 import numpy as np
-from PIL import Image, ImageDraw
 import cv2
 import pandas as pd
 import h5py
