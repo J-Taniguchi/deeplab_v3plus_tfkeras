@@ -50,14 +50,13 @@ def make_path_generator(img_paths,
                         preprocess=None,
                         augmentation=True,
                         resize_or_crop="resize",
-                        data_type="image"):
+                        ):
     def map_f(x_path, y_path):
         x, y = make_xy_from_data_paths(
             [x_path],
             [y_path],
             image_size,
             label,
-            data_type=data_type,
             resize_or_crop=resize_or_crop)
         x = x[0]
         y = y[0]
@@ -87,38 +86,3 @@ def make_path_generator(img_paths,
 
     ds = tf.data.Dataset.from_tensor_slices((img_paths, seg_img_paths))
     return ds, wrap_mapf
-
-
-def make_path_generator_old(img_paths,
-                            seg_img_paths,
-                            image_size,
-                            label: Label,
-                            preprocess=None,
-                            augmentation=True,
-                            resize_or_crop="resize",
-                            data_type="image"):
-
-    def path_generator():
-
-        n_images = len(img_paths)
-
-        for i in range(n_images):
-            x, y = make_xy_from_data_paths(
-                [img_paths[i]],
-                [seg_img_paths[i]],
-                image_size,
-                label,
-                data_type=data_type,
-                resize_or_crop=resize_or_crop)
-            if augmentation is True:
-                x, y = data_augment(x,
-                                    y,
-                                    image_size=image_size,
-                                    p=0.95)
-
-            if preprocess is None:
-                x = (x / 127.5) - 1
-            else:
-                x = preprocess(x)
-            yield x[0, :, :, :], y[0, :, :, :]
-    return path_generator

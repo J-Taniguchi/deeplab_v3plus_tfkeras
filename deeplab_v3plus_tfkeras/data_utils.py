@@ -227,7 +227,6 @@ def make_xy_from_data_paths(x_paths,
                             y_paths,
                             image_size,
                             label,
-                            data_type,
                             resize_or_crop="resize"):
     """make x and y from data paths.
 
@@ -248,7 +247,6 @@ def make_xy_from_data_paths(x_paths,
     for i, x_path in enumerate(x_paths):
         image = tf.io.read_file(x_path)
         image = tf.image.decode_image(image, channels=3)
-        # image = tf.image.convert_image_dtype(image, tf.float32)
         if resize_or_crop == "resize":
             image = tf.image.resize(image, image_size[::-1])
         elif resize_or_crop == "crop":
@@ -274,200 +272,22 @@ def make_xy_from_data_paths(x_paths,
             continue
 
         if resize_or_crop == "resize":
-            if data_type == "image":
-                image = tf.io.read_file(y_path)
-                image = tf.image.decode_image(image, channels=3)
+            image = tf.io.read_file(y_path)
+            image = tf.image.decode_image(image, channels=3)
+            y0 = convert_image_array_to_y(image, label)
+            y.append(y0)
 
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "index_png":
-                image = Image.open(y_path)
-                image = image.resize(image_size)
-                image = image.convert('RGB')
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "polygon":
-                y0 = make_y_from_poly_json_path(y_path, image_size, label)
-                y.append(y0)
-            else:
-                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
         elif resize_or_crop == "crop":
-            if data_type == "image":
-                image = tf.io.read_file(y_path)
-                image = tf.image.decode_image(image, channels=3)
-                image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
-                y0 = convert_image_array_to_y(image, label)
-                out = np.zeros((image_size[1], image_size[0], label.n_labels))
-                out[0:image.shape[0], 0:image.shape[1]] = y0[:, :]
-                y.append(out)
-            elif data_type == "index_png":
-                image = Image.open(y_path)
-                image = image.crop(crop_areas[i])
-                image = image.convert('RGB')
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "polygon":
-                y0 = make_y_from_poly_json_path(y_path, image_size, label, crop_areas[i])
-                y.append(y0)
-            else:
-                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
+            image = tf.io.read_file(y_path)
+            image = tf.image.decode_image(image, channels=3)
+            image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
+            y0 = convert_image_array_to_y(image, label)
+            out = np.zeros((image_size[1], image_size[0], label.n_labels))
+            out[0:image.shape[0], 0:image.shape[1]] = y0[:, :]
+            y.append(out)
 
     y = tf.convert_to_tensor(y)
     return x, y
-
-
-def make_xy_from_data_paths_old(x_paths,
-                                y_paths,
-                                image_size,
-                                label,
-                                data_type,
-                                resize_or_crop="resize"):
-    """make x and y from data paths.
-
-    Args:
-        x_paths (list): list of path to x image
-        y_paths (list): list of path to y image or json. if None, y is exported as None
-        image_size (tuple): model input and output size.(width, height)
-        label (Label): class "Label" written in label.py
-        data_type (str): select "image" or "index_png" or "polygon"
-        resize_or_crop (str): select "resize" or "crop". Defaults to "resize".
-
-    Returns:
-        np.rray, np.array: x and y
-
-    """
-    x = []
-    crop_areas = []
-    for i, x_path in enumerate(x_paths):
-        image = Image.open(x_path)
-        if resize_or_crop == "resize":
-            image = image.resize(image_size)
-        elif resize_or_crop == "crop":
-            crop_area = get_random_crop_area(image.size, image_size)
-            image = image.crop(crop_area)
-            crop_areas.append(crop_area)
-        elif resize_or_crop is False:
-            pass
-        else:
-            raise Exception("resize_or_crop must be 'resize' or 'crop'.")
-        image = np.array(image, np.uint8)[:, :, 0:3]
-        x.append(image)
-    x = np.array(x)
-
-    if y_paths is None:
-        return x, None
-
-    y = []
-    for i, y_path in enumerate(y_paths):
-        if y_path is None:
-            y.append(np.zeros((*image_size[::-1], label.n_labels), np.int32))
-            continue
-
-        if resize_or_crop == "resize":
-            if data_type == "image":
-                image = Image.open(y_path)
-                image = image.resize(image_size)
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "index_png":
-                image = Image.open(y_path)
-                image = image.resize(image_size)
-                image = image.convert('RGB')
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "polygon":
-                y0 = make_y_from_poly_json_path(y_path, image_size, label)
-                y.append(y0)
-            else:
-                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
-        elif resize_or_crop == "crop":
-            if data_type == "image":
-                image = Image.open(y_path)
-                image = image.crop(crop_areas[i])
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "index_png":
-                image = Image.open(y_path)
-                image = image.crop(crop_areas[i])
-                image = image.convert('RGB')
-                image = np.array(image, np.int32)[:, :, :3]
-                y0 = convert_image_array_to_y(image, label)
-                y.append(y0)
-            elif data_type == "polygon":
-                y0 = make_y_from_poly_json_path(y_path, image_size, label, crop_areas[i])
-                y.append(y0)
-            else:
-                raise Exception("data_type must be \"image\" or \"index_png\" or \"polygon\".")
-
-    y = np.array(y)
-    return x, y
-
-
-def make_y_from_poly_json_path(data_path,
-                               image_size,
-                               label,
-                               crop_area=None):
-    """Short summary.
-
-    Args:
-        data_path (path): path to json file.
-        image_size (tuple): model input and output size.(width, height)
-        label (Label): class "Label" written in label.py
-        crop_area (None or tuple): If None, resize.
-                                   If tuple(xmin, ymin, xmax, ymax), crop to this area.
-                                   Defaults to None.
-
-    Returns:
-        np.array: y
-
-    """
-    y = np.empty((image_size[1], image_size[0], label.n_labels), np.float32)
-
-    if data_path is None:
-        for i in range(label.n_labels):
-            if i == 0:
-                y[:, :, i] = np.ones(image_size, np.float32)
-            else:
-                y[:, :, i] = np.zeros(image_size, np.float32)
-    else:
-        # with open(data_path) as d:
-        # with tf.io.gfile.GFile(data_path) as d:
-        with tf.io.read_file(data_path) as d:
-            poly_json = json.load(d)
-        org_image_size = (poly_json["imageWidth"], poly_json["imageHeight"])
-        n_poly = len(poly_json['shapes'])
-
-        images = []
-        draws = []
-        for i in range(label.n_labels):
-            if (i == 0) and (label.name[0] == "background"):  # 背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
-                images.append(Image.new(mode='1', size=org_image_size, color=True))
-            else:
-                images.append(Image.new(mode='1', size=org_image_size, color=False))
-            draws.append(ImageDraw.Draw(images[i]))
-
-        for i in range(n_poly):
-            label_name = poly_json['shapes'][i]['label']
-            label_num = label.name.index(label_name)
-
-            poly = poly_json['shapes'][i]['points']
-            poly = tuple(map(tuple, poly))
-            draws[label_num].polygon(poly, fill=True)
-            # 背景は全部Trueにしておいて，何らかのオブジェクトがある場合にFalseでぬる
-            if label.name[0] == "background":
-                draws[0].polygon(poly, fill=False)
-
-        for i in range(label.n_labels):
-            if crop_area is None:
-                y[:, :, i] = np.array(images[i].resize(image_size))
-            else:
-                y[:, :, i] = np.array(images[i].crop(crop_area))
-    return y
 
 
 def convert_image_array_to_y(image_array, label):

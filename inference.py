@@ -67,7 +67,6 @@ if "train" in which_to_inference:
                                    y_paths,
                                    image_size,
                                    label,
-                                   "image",
                                    resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "train_inference.h5")
@@ -83,7 +82,6 @@ if "valid" in which_to_inference:
                                    y_paths,
                                    image_size,
                                    label,
-                                   "image",
                                    resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "valid_inference.h5")

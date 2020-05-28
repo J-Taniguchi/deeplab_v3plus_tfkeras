@@ -42,7 +42,7 @@ output_activation = conf["output_activation"]
 image_size = conf["image_size"]
 loss = conf["loss"]
 optimizer = conf["optimizer"]
-class_weight = conf["class_weight"]
+class_weight = conf.get("class_weight", None)
 use_tensorboard = conf["use_tensorboard"]
 
 label = Label(label_file_path)

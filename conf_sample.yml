@@ -46,14 +46,17 @@ image_size: [256,256]
 optimizer: Adam #Adam or Nadam or SGD
 # Choose one for loss function.
 # CE: cross entropy
-# WCE: weighted cross entropy
 # FL: focal loss
 # GDL: generalized dice loss
 loss: FL
+# True or False
+use_tensorboard: True
+
+# below is not supported now.
 # The length of class_weight must be same as the number of labels.
 # If you write class_weight to "~", treated all classes as having same weight.
 # If sum of class_weigths is not 1, automaticaly set as such.
-class_weight: ~
+# class_weight: ~
 #class_weight:
 #    - 0.1
 #    - 0.8
@@ -61,5 +64,3 @@ class_weight: ~
 #class_weight:
 #    - 100
 #    - 200
-# True or False
-use_tensorboard: True
