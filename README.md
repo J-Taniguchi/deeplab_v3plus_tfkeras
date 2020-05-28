@@ -43,7 +43,10 @@ See conf_sample.yml.
 Training with the data written in train_x_dirs and train_y_dirs, watch validation with the data written in valid_x_dirs and valid_y_dirs.
 
 Trained model and training log are written in model_dir.
-
+use like
+``` bash
+python train.py conf.yml
+```
 
 
 # train_continue.py
@@ -60,10 +63,19 @@ Inference to the dataset written in which_to_inference.
 
 Inference results are written in model_dir with h5 format.  This file is use for visualise.py
 
+use like
+``` bash
+python inference.py conf.yml
+```
+
 # visualise.py
 
 visualise thre inference results written in  which_to_visualise.
 
+use like
+``` bash
+python visualise.py conf.yml
+```
 
 # omake/convert_labelme_json_to_palette_png.py
 
