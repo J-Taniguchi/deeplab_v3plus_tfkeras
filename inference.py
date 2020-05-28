@@ -94,17 +94,9 @@ if "valid" in which_to_inference:
                            last_activation=last_activation)
 
 if "test" in which_to_inference:
-    for i, test_data_dir in enumerate(valid_x_dirs):
+    for i, test_data_dir in enumerate(test_x_dirs):
         test_name = test_data_dir.split(os.sep)[-1]
         x_paths, _ = make_xy_path_list([test_data_dir], None)
-        """
-        x = make_xy_from_data_paths(x_paths,
-                                    None,
-                                    image_size,
-                                    label,
-                                    "image",
-                                    resize_or_crop="crop")
-        """
 
         mode = "max_confidence"
         x = []
