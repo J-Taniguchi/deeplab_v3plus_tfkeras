@@ -3,3 +3,9 @@ src/__pycache__/
 __pycache__/
 .vscode/
 conf_test.yml
+conf_sample.yml
+conf.yaml
+run_CE.sh
+run_FL.sh
+test_CE.yml
+test_FL.yml
