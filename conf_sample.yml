@@ -2,24 +2,24 @@
 model_dir: path/to/model_dir
 
 label_file_path: path/to/label.csv
-train_x_paths:
+train_x_dirs:
     - path/to/train_x_dir1
     - path/to/train_x_dir2
 
-train_y_paths:
+train_y_dirs:
     - path/to/train_y_dir1
     - path/to/train_y_dir2
 
-valid_x_paths:
+valid_x_dirs:
     - path/to/valid_x_dir1
     - path/to/valid_x_dir2
 
-valid_y_paths:
+valid_y_dirs:
     - path/to/valid_y_dir1
     - path/to/valid_y_dir2
 
 # below is to inference and visualise.
-test_x_paths:
+test_x_dirs:
     - path/to/test_x_dir1
     - path/to/test_x_dir2
 #if you don't use the value, write "~" like below.

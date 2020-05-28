@@ -22,11 +22,14 @@ tf.compat.v1.enable_eager_execution()
 out_dir = os.path.join(conf["model_dir"], "augment_test")
 image_size = conf["image_size"]
 
+train_x_dirs = conf["train_x_dirs"]
+train_y_dirs = conf["train_y_dirs"]
+
 n_gpus = len(use_devices.split(','))
 
 os.makedirs(out_dir, exist_ok=True)
 
-train_x_paths, train_y_paths = make_xy_path_list(conf["train_x_paths"], conf["train_y_paths"])
+train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
 
 n_out = 100
 for i in tqdm(range(n_out - 1)):

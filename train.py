@@ -30,6 +30,12 @@ matplotlib.use('Agg')
 out_dir = conf["model_dir"]
 label_file_path = conf["label_file_path"]
 
+train_x_dirs = conf["train_x_dirs"]
+train_y_dirs = conf["train_y_dirs"]
+
+valid_x_dirs = conf["valid_x_dirs"]
+valid_y_dirs = conf["valid_y_dirs"]
+
 batch_size = conf["batch_size"]
 n_epochs = conf["n_epochs"]
 output_activation = conf["output_activation"]
@@ -52,7 +58,7 @@ os.makedirs(out_dir, exist_ok=True)
 preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
-train_x_paths, train_y_paths = make_xy_path_list(conf["train_x_paths"], conf["train_y_paths"])
+train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
 n_train_data = len(train_x_paths)
 train_dataset, train_map_f = my_generator.make_path_generator(
     train_x_paths,
@@ -71,7 +77,7 @@ train_dataset = train_dataset.batch(batch_size)
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # make valid dataset
-valid_x_paths, valid_y_paths = make_xy_path_list(conf["valid_x_paths"], conf["valid_y_paths"])
+valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
 n_valid_data = len(valid_x_paths)
 valid_dataset, valid_map_f = my_generator.make_path_generator(
     valid_x_paths,
