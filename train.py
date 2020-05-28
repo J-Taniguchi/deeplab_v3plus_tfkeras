@@ -19,7 +19,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
-from deeplab_v3plus_tfkeras.metrics import make_IoU
+from deeplab_v3plus_tfkeras.metrics import make_IoU, make_categorical_IoU
 from deeplab_v3plus_tfkeras.label import Label
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
 import deeplab_v3plus_tfkeras.data_gen as my_generator
@@ -42,6 +42,8 @@ output_activation = conf["output_activation"]
 image_size = conf["image_size"]
 loss = conf["loss"]
 optimizer = conf["optimizer"]
+metrics = conf["metrics"]
+categorical_metrics = conf.get("categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf["use_tensorboard"]
 
@@ -68,8 +70,7 @@ train_dataset, train_map_f = my_generator.make_path_generator(
     preprocess,
     augmentation=True,
     # augmentation=False,
-    resize_or_crop="crop",
-    data_type="image")
+    resize_or_crop="crop")
 
 train_dataset = train_dataset.shuffle(n_train_data)
 train_dataset = train_dataset.map(train_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
@@ -86,8 +87,7 @@ valid_dataset, valid_map_f = my_generator.make_path_generator(
     label,
     preprocess,
     augmentation=False,
-    resize_or_crop="crop",
-    data_type="image")
+    resize_or_crop="crop")
 
 valid_dataset = valid_dataset.map(valid_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 valid_dataset = valid_dataset.batch(batch_size)
@@ -137,7 +137,16 @@ else:
         "optimizer " + optimizer + " is not supported")
 
 # define metrics
-IoU = make_IoU(threshold=0.5)
+if metrics == "IoU":
+    IoU = make_IoU(threshold=0.5)
+    metrics_list = [IoU]
+    if categorical_metrics:
+        IoUs = make_categorical_IoU(label, threshold=0.5)
+        metrics_list.extend(IoUs)
+else:
+    raise Exception(
+        "metrics " + metrics + " is not supported")
+
 
 # make model
 layer_name_to_decoder = "block3_sepconv2_bn"
@@ -162,7 +171,7 @@ if n_gpus >= 2:
 
         model.compile(optimizer=opt,
                       loss=loss_function,
-                      metrics=[IoU],
+                      metrics=metrics_list,
                       run_eagerly=True,
                       )
 else:
@@ -183,7 +192,7 @@ else:
 
     model.compile(optimizer=opt,
                   loss=loss_function,
-                  metrics=[IoU],
+                  metrics=metrics_list,
                   run_eagerly=True,
                   )
 model.summary()
@@ -218,30 +227,36 @@ hist = model.fit(
     validation_data=valid_dataset,
     callbacks=cbs,
 )
-
+print(hist.history)
 # write log
-hists = [hist.history["loss"],
-         hist.history["val_loss"],
-         hist.history["IoU"],
-         hist.history["val_IoU"]]
-hists = np.array(hists).T
-hists_df = pd.DataFrame(hists, columns=["loss", "val_loss", "IoU", "val_IoU"])
+hists = hist.history
+hists_df = pd.DataFrame(hists)
 hists_df.to_csv(os.path.join(out_dir, "training_log.csv"), index=False)
 
-plt.figure(figsize=(20, 10))
+plt.figure(figsize=(30, 10))
 
-plt.subplot(1, 2, 1)
+plt.subplot(1, 3, 1)
 plt.plot(hists_df["loss"], label="loss")
 plt.plot(hists_df["val_loss"], label="val_loss")
 plt.yscale("log")
 plt.legend()
 plt.grid()
 
-plt.subplot(1, 2, 2)
-plt.plot(hists_df["IoU"], label="IoU")
-plt.plot(hists_df["val_IoU"], label="val_IoU")
-plt.legend()
-plt.grid()
+plt.subplot(1, 3, 2)
+for i, key in enumerate(hists_df):
+    if 2 <= i and i < 2 + label.n_labels:
+        plt.plot(hists_df[key], label=key)
+    plt.legend()
+    plt.ylim(0, 1.0)
+    plt.grid()
+
+plt.subplot(1, 3, 3)
+for i, key in enumerate(hists_df):
+    if 3 + label.n_labels <= i:
+        plt.plot(hists_df[key], label=key)
+    plt.legend()
+    plt.ylim(0, 1.0)
+    plt.grid()
 plt.savefig(os.path.join(out_dir, 'losscurve.png'))
 
 model.save(os.path.join(out_dir, 'final_epoch.h5'))

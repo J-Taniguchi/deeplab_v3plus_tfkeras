@@ -44,11 +44,21 @@ n_epochs: 350
 use_devices: "0" # if you want to do distributed learning, write like "0,1,2".
 image_size: [256,256]
 optimizer: Adam #Adam or Nadam or SGD
+
 # Choose one for loss function.
 # CE: cross entropy
 # FL: focal loss
 # GDL: generalized dice loss
 loss: FL
+
+# Choose one fore metrics
+# IoU: Intersection over Union. Jaccard index.
+# F  : F measure. Dice coefficient.
+metrics: IoU
+
+# True, if you want to check metrics for each label.
+categorical_metrics: True
+
 # True or False
 use_tensorboard: True
 
