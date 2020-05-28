@@ -17,6 +17,27 @@ You can use pipenv to create virtual environment.
 pipenv sync
 ```
 
+# config.yaml
+
+Describe these keywords in YAML format in your configuration file.
+
+See conf_sample.yml.
+
+|  key  |  description  |
+| :---: | :--- |
+|use_devices | use gpu number. If you want to do distributed learning, write like "0,1,2" |
+|model_dir                                           |all outputs are written here. <br>e.g., trained model, inference results, etc..|
+|  train_x_dirs<br> valid_x_dirs<br> test_x_dirs  | list of directories where input images exist.|
+|  train_y_dirs<br> valid_y_dirs                   | list of directories where segmentation image exsit.<br> Each segmentation image name must be the same for corresponding input image.  |
+|which_to_inference <br> which_to_visualise          | chosse from "train", "valid", "test".|
+|output_activation                                   | chosse "softmax" or "sigmoid". <br>softmax means each pixcel is assigned to 1 label.<br>sigmoid means each pixel can assigned 1 or more labels.|
+|batch_size | batch size|
+|n_epochs   |nuber of epochs |
+|image_size | [height, width] |
+|optimizer  |"Adam" or "Nadam" or "SGD" |
+|loss       |choose one .<br>"CE": cross entropy <br> "FL": focal loss <br>"GDL": generalized dice loss
+|use_tensorboard| if you want to use, True. If not, False.|
+
 # train.py
 
 Training with the data written in train_x_paths and train_y_paths, watch validation with the data written in valid_x_paths and valid_y_paths.
