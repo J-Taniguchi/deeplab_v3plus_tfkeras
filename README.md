@@ -40,7 +40,7 @@ See conf_sample.yml.
 
 # train.py
 
-Training with the data written in train_x_paths and train_y_dirs, watch validation with the data written in valid_x_dirs and valid_y_dirs.
+Training with the data written in train_x_dirs and train_y_dirs, watch validation with the data written in valid_x_dirs and valid_y_dirs.
 
 Trained model and training log are written in model_dir.
 
