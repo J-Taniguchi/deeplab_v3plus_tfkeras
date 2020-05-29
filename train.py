@@ -19,11 +19,12 @@ import tensorflow as tf
 import tensorflow.keras as keras
 
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16
-from deeplab_v3plus_tfkeras.metrics import make_IoU, make_categorical_IoU
+from deeplab_v3plus_tfkeras.metrics import make_IoU, make_categorical_IoU, make_F1score, make_categorical_F1score
 from deeplab_v3plus_tfkeras.label import Label
 from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
 import deeplab_v3plus_tfkeras.data_gen as my_generator
 import deeplab_v3plus_tfkeras.loss as my_loss_func
+import deeplab_v3plus_tfkeras.mod_xception as xception
 tf.compat.v1.enable_eager_execution()
 matplotlib.use('Agg')
 
@@ -43,7 +44,7 @@ image_size = conf["image_size"]
 loss = conf["loss"]
 optimizer = conf["optimizer"]
 metrics = conf["metrics"]
-categorical_metrics = conf.get("categorical_metrics", "True")
+check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf["use_tensorboard"]
 
@@ -140,9 +141,15 @@ else:
 if metrics == "IoU":
     IoU = make_IoU(threshold=0.5)
     metrics_list = [IoU]
-    if categorical_metrics:
+    if check_categorical_metrics:
         IoUs = make_categorical_IoU(label, threshold=0.5)
         metrics_list.extend(IoUs)
+elif metrics == "F1score":
+    F1 = make_F1score(threshold=0.5)
+    metrics_list = [F1]
+    if check_categorical_metrics:
+        F1s = make_categorical_F1score(label, threshold=0.5)
+        metrics_list.extend(F1s)
 else:
     raise Exception(
         "metrics " + metrics + " is not supported")
@@ -155,7 +162,7 @@ encoder_end_layer_name = "block13_sepconv2_bn"
 if n_gpus >= 2:
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
-        encoder = keras.applications.Xception(
+        encoder = xception.Xception(
             input_shape=(*image_size, 3),
             weights="imagenet",
             include_top=False)
@@ -175,7 +182,7 @@ if n_gpus >= 2:
                       run_eagerly=True,
                       )
 else:
-    encoder = keras.applications.Xception(
+    encoder = xception.Xception(
         input_shape=(*image_size, 3),
         weights="imagenet",
         include_top=False)
@@ -200,7 +207,7 @@ model.summary()
 filepath = os.path.join(out_dir, 'best_model.h5')
 cp_cb = keras.callbacks.ModelCheckpoint(
     filepath,
-    monitor='val_IoU',
+    monitor='val_' + metrics,
     verbose=1,
     save_best_only=True,
     save_weights_only=False,
@@ -227,36 +234,53 @@ hist = model.fit(
     validation_data=valid_dataset,
     callbacks=cbs,
 )
-print(hist.history)
+
 # write log
 hists = hist.history
 hists_df = pd.DataFrame(hists)
 hists_df.to_csv(os.path.join(out_dir, "training_log.csv"), index=False)
 
-plt.figure(figsize=(30, 10))
+if check_categorical_metrics:
+    plt.figure(figsize=(30, 10))
 
-plt.subplot(1, 3, 1)
-plt.plot(hists_df["loss"], label="loss")
-plt.plot(hists_df["val_loss"], label="val_loss")
-plt.yscale("log")
-plt.legend()
-plt.grid()
+    plt.subplot(1, 3, 1)
+    plt.plot(hists_df["loss"], label="loss")
+    plt.plot(hists_df["val_loss"], label="val_loss")
+    plt.yscale("log")
+    plt.legend()
+    plt.grid(b=True)
 
-plt.subplot(1, 3, 2)
-for i, key in enumerate(hists_df):
-    if 2 <= i and i < 2 + label.n_labels:
-        plt.plot(hists_df[key], label=key)
+    plt.subplot(1, 3, 2)
+    for i, key in enumerate(hists_df):
+        if 1 <= i <= 1 + label.n_labels:
+            plt.plot(hists_df[key], label=key)
+        plt.legend()
+        plt.ylim(0, 1.0)
+        plt.grid(b=True)
+
+    plt.subplot(1, 3, 3)
+    for i, key in enumerate(hists_df):
+        if 3 + label.n_labels <= i:
+            plt.plot(hists_df[key], label=key)
+        plt.legend()
+        plt.ylim(0, 1.0)
+        plt.grid(b=True)
+else:
+    plt.figure(figsize=(20, 10))
+    plt.subplot(1, 2, 1)
+    plt.plot(hists_df["loss"], label="loss")
+    plt.plot(hists_df["val_loss"], label="val_loss")
+    plt.yscale("log")
+    plt.legend()
+    plt.grid(b=True)
+
+    plt.subplot(1, 2, 2)
+    plt.plot(hists_df[metrics], label=metrics)
+    plt.plot(hists_df["val_" + metrics], label="val_" + metrics)
     plt.legend()
     plt.ylim(0, 1.0)
-    plt.grid()
+    plt.grid(b=True)
 
-plt.subplot(1, 3, 3)
-for i, key in enumerate(hists_df):
-    if 3 + label.n_labels <= i:
-        plt.plot(hists_df[key], label=key)
-    plt.legend()
-    plt.ylim(0, 1.0)
-    plt.grid()
 plt.savefig(os.path.join(out_dir, 'losscurve.png'))
 
 model.save(os.path.join(out_dir, 'final_epoch.h5'))

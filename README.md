@@ -1,5 +1,16 @@
 # deeplab_v3plus_tfkeras
 
+- [deeplab_v3plus_tfkeras](#deeplab_v3plus_tfkeras)
+  - [useage](#useage)
+  - [config.yaml](#configyaml)
+  - [train.py](#trainpy)
+  - [train_continue.py](#train_continuepy)
+  - [inference.py](#inferencepy)
+  - [visualise.py](#visualisepy)
+  - [omake/convert_labelme_json_to_palette_png.py](#omakeconvert_labelme_json_to_palette_pngpy)
+
+## useage
+
 Programs for semantic segmentation.
 If you want to use Jupyter Notebook, see this [branch](https://github.com/J-Taniguchi/deeplab_v3plus_tfkeras/tree/jupyter)
 
@@ -13,11 +24,12 @@ you can make annotation file as RGB image
 - It is better to modify data_augment.py for your objective.
 
 You can use pipenv to create virtual environment.
+
 ``` bash
 pipenv sync
 ```
 
-# config.yaml
+## config.yaml
 
 Describe these keywords in YAML format in your configuration file.
 
@@ -26,8 +38,8 @@ See conf_sample.yml.
 |  key  |  description  |
 | :---: | :--- |
 |use_devices | use gpu number. If you want to do distributed learning, write like "0,1,2" |
-|model_dir                                           |all outputs are written here. <br>e.g., trained model, inference results, etc..|
-|  train_x_dirs<br> valid_x_dirs<br> test_x_dirs  | list of directories where input images exist.|
+|model_dir |all outputs are written here. <br>e.g., trained model, inference results, etc..|
+| train_x_dirs<br> valid_x_dirs<br> test_x_dirs | list of directories where input images exist.|
 |  train_y_dirs<br> valid_y_dirs                   | list of directories where segmentation image exsit.<br> Each segmentation image name must be the same for corresponding input image.  |
 |which_to_inference <br> which_to_visualise          | chosse from "train", "valid", "test".|
 |output_activation                                   | chosse "softmax" or "sigmoid". <br>softmax means each pixcel is assigned to 1 label.<br>sigmoid means each pixel can assigned 1 or more labels.|
@@ -36,50 +48,52 @@ See conf_sample.yml.
 |image_size | [height, width] |
 |optimizer  |"Adam" or "Nadam" or "SGD" |
 |loss       |choose one .<br>"CE": cross entropy <br> "FL": focal loss <br>"GDL": generalized dice loss
+|metrics| choose one. <br> IoU: Intersection over Union. Jaccard index. <br>F1score: F1 score. F-measure. Dice coefficient.|
+|check_categorical_metrics| True, if you want to check metrics for each label.|
 |use_tensorboard| if you want to use, True. If not, False.|
 
-# train.py
+## train.py
 
 Training with the data written in train_x_dirs and train_y_dirs, watch validation with the data written in valid_x_dirs and valid_y_dirs.
 
 Trained model and training log are written in model_dir.
 use like
+
 ``` bash
 python train.py conf.yml
 ```
 
-
-# train_continue.py
+## train_continue.py
 
 Training continues from finale_epoch.h5.
 
 Trained model and log are overwrite to model_dir.
 
-
-
-# inference.py
+## inference.py
 
 Inference to the dataset written in which_to_inference.
 
 Inference results are written in model_dir with h5 format.  This file is use for visualise.py
 
 use like
+
 ``` bash
 python inference.py conf.yml
 ```
 
-# visualise.py
+## visualise.py
 
 visualise thre inference results written in  which_to_visualise.
 
 use like
+
 ``` bash
 python visualise.py conf.yml
 ```
 
-# omake/convert_labelme_json_to_palette_png.py
+## omake/convert_labelme_json_to_palette_png.py
 
-```
+``` text
 usage: convert_labelme_json_to_palette_png.py [-h]
                                               label_list_path input_dir
                                               output_dir

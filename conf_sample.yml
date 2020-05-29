@@ -53,11 +53,11 @@ loss: FL
 
 # Choose one fore metrics
 # IoU: Intersection over Union. Jaccard index.
-# F  : F measure. Dice coefficient.
+# F1  : F1score. F measure. Dice coefficient.
 metrics: IoU
 
 # True, if you want to check metrics for each label.
-categorical_metrics: True
+check_categorical_metrics: True
 
 # True or False
 use_tensorboard: True
