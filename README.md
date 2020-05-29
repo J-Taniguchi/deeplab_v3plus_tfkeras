@@ -18,7 +18,7 @@ pipenv sync
 
 # train.ipynb
 
-Training with the data written in train_x_paths and train_y_paths, watch validation with the data written in valid_x_paths and valid_y_paths.
+Training with the data written in train_x_dirs and train_y_dirs, watch validation with the data written in valid_x_dirs and valid_y_dirs.
 
 
 
@@ -34,7 +34,6 @@ Inference results are written in model_dir with h5 format.  This file is use for
 # visualise.ipynb
 
 visualise thre inference results written in  which_to_visualise.
-
 
 # omake/convert_labelme_json_to_palette_png.py
 

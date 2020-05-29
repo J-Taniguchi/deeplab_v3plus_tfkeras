@@ -28,6 +28,13 @@ label_file_path = conf["label_file_path"]
 batch_size = conf["batch_size"]
 image_size = conf["image_size"]
 
+train_x_dirs = conf["train_x_dirs"]
+train_y_dirs = conf["train_y_dirs"]
+
+valid_x_dirs = conf["valid_x_dirs"]
+valid_y_dirs = conf["valid_y_dirs"]
+
+test_x_dirs = conf["test_x_dirs"]
 
 # loss = conf["loss"]
 which_to_inference = conf["which_to_inference"]
@@ -52,12 +59,11 @@ last_activation = model.layers[-1].name
 
 
 if "train" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(conf["train_x_paths"], conf["train_y_paths"])
+    x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
     x, y = make_xy_from_data_paths(x_paths,
                                    y_paths,
                                    image_size,
                                    label,
-                                   "image",
                                    resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "train_inference.h5")
@@ -68,12 +74,11 @@ if "train" in which_to_inference:
                            last_activation=last_activation)
 
 if "valid" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(conf["valid_x_paths"], conf["valid_y_paths"])
+    x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_x_dirs)
     x, y = make_xy_from_data_paths(x_paths,
                                    y_paths,
                                    image_size,
                                    label,
-                                   "image",
                                    resize_or_crop="crop")
     pred = model.predict(preprocess(x), batch_size=batch_size)
     fpath = os.path.join(model_dir, "valid_inference.h5")
@@ -84,17 +89,9 @@ if "valid" in which_to_inference:
                            last_activation=last_activation)
 
 if "test" in which_to_inference:
-    for i, test_data_path in enumerate(conf["test_x_paths"]):
-        test_name = test_data_path.split(os.sep)[-1]
-        x_paths, _ = make_xy_path_list(conf["test_x_paths"], None)
-        """
-        x = make_xy_from_data_paths(x_paths,
-                                    None,
-                                    image_size,
-                                    label,
-                                    "image",
-                                    resize_or_crop="crop")
-        """
+    for i, test_data_dir in enumerate(test_x_dirs):
+        test_name = test_data_dir.split(os.sep)[-1]
+        x_paths, _ = make_xy_path_list([test_data_dir], None)
 
         mode = "max_confidence"
         x = []

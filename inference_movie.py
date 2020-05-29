@@ -49,7 +49,6 @@ valid_x, valid_y = make_xy_from_data_paths(train_x_paths,
                                            train_y_paths,
                                            image_size,
                                            label,
-                                           "polygon",
                                            resize_or_crop="crop")
 
 

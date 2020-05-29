@@ -19,7 +19,7 @@ valid_y_dirs:
     - path/to/valid_y_dir2
 
 # below is to inference and visualise.
-test_x_paths:
+test_x_dirs:
     - path/to/test_x_dir1
     - path/to/test_x_dir2
 #if you don't use the value, write "~" like below.
@@ -44,16 +44,29 @@ n_epochs: 350
 use_devices: "0" # if you want to do distributed learning, write like "0,1,2".
 image_size: [256,256]
 optimizer: Adam #Adam or Nadam or SGD
+
 # Choose one for loss function.
 # CE: cross entropy
-# WCE: weighted cross entropy
 # FL: focal loss
 # GDL: generalized dice loss
 loss: FL
+
+# Choose one fore metrics
+# IoU: Intersection over Union. Jaccard index.
+# F1  : F1score. F measure. Dice coefficient.
+metrics: IoU
+
+# True, if you want to check metrics for each label.
+check_categorical_metrics: True
+
+# True or False
+use_tensorboard: True
+
+# below is not supported now.
 # The length of class_weight must be same as the number of labels.
 # If you write class_weight to "~", treated all classes as having same weight.
 # If sum of class_weigths is not 1, automaticaly set as such.
-class_weight: ~
+# class_weight: ~
 #class_weight:
 #    - 0.1
 #    - 0.8
@@ -61,5 +74,3 @@ class_weight: ~
 #class_weight:
 #    - 100
 #    - 200
-# True or False
-use_tensorboard: True
