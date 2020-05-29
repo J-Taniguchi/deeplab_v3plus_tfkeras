@@ -53,7 +53,7 @@ loss: FL
 
 # Choose one fore metrics
 # IoU: Intersection over Union. Jaccard index.
-# F1  : F1score. F measure. Dice coefficient.
+# F1score  : F1score. F measure. Dice coefficient.
 metrics: IoU
 
 # True, if you want to check metrics for each label.
