@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.layers as layers
 import numpy as np
+from deeplab_v3plus_tfkeras.crfrnn_layer import CrfRnnLayer
 
 
 def deeplab_v3plus(image_size, n_categories):
@@ -103,7 +104,8 @@ def deeplab_v3plus_transfer_os16(n_categories,
                                  encoder_end_layer_name,
                                  freeze_encoder=True,
                                  output_activation='softmax',
-                                 batch_renorm=False):
+                                 batch_renorm=False,
+                                 add_CRFasRNN_layer=False):
 
     layer_dict = dict([(layer.name, layer) for layer in encoder.layers])
     inputs = encoder.input
@@ -149,6 +151,15 @@ def deeplab_v3plus_transfer_os16(n_categories,
         outputs = layers.Activation(tf.nn.softmax, name="softmax")(x_dec)
     elif output_activation == 'sigmoid':
         outputs = layers.Activation(tf.nn.sigmoid, name="sigmoid")(x_dec)
+
+    if add_CRFasRNN_layer:
+        outputs = CrfRnnLayer(image_dims=inputs.shape[1:3],
+                              num_classes=n_categories,
+                              theta_alpha=160.,
+                              theta_beta=3.,
+                              theta_gamma=3.,
+                              num_iterations=10,
+                              name='crfrnn')([outputs, inputs])
 
     model = keras.Model(inputs=inputs, outputs=outputs, name=encoder.name + "_deeplab-v3plus")
     return model

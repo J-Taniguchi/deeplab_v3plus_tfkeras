@@ -8,3 +8,4 @@ run_FL.sh
 test_CE.yml
 test_FL.yml
 test.py
+deeplab_v3plus_tfkeras/cpp/high_dim_filter.so

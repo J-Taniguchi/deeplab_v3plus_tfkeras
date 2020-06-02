@@ -47,6 +47,7 @@ metrics = conf["metrics"]
 check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf["use_tensorboard"]
+add_CRFasRNN = conf.get("add_CRFasRNN", False)
 
 label = Label(label_file_path)
 if class_weight is not None:
@@ -195,6 +196,7 @@ else:
         freeze_encoder=False,
         output_activation=output_activation,
         batch_renorm=False,
+        add_CRFasRNN_layer=True
     )
 
     model.compile(optimizer=opt,
