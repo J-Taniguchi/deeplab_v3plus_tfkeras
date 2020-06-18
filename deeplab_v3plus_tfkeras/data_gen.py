@@ -50,6 +50,7 @@ def make_path_generator(img_paths,
                         preprocess=None,
                         augmentation=True,
                         resize_or_crop="resize",
+                        data_type="image", #or "npy"
                         ):
     def map_f(x_path, y_path):
         x, y = make_xy_from_data_paths(
@@ -57,7 +58,8 @@ def make_path_generator(img_paths,
             [y_path],
             image_size,
             label,
-            resize_or_crop=resize_or_crop)
+            resize_or_crop=resize_or_crop,
+            data_type=imput_type)
         x = x[0]
         y = y[0]
 

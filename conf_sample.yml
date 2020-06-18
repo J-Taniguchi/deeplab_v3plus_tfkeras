@@ -2,6 +2,12 @@
 model_dir: path/to/model_dir
 
 label_file_path: path/to/label.csv
+# choose one for input_type. default is "image".
+input_type: "image" # or "npy"
+
+# write input's number of channels - 3. (e.g. if only rgb input, 0.) default is 0.
+n_extra_channels: 0
+
 train_x_dirs:
     - path/to/train_x_dir1
     - path/to/train_x_dir2
@@ -56,7 +62,7 @@ loss: FL
 # F1score  : F1score. F measure. Dice coefficient.
 metrics: IoU
 
-# True, if you want to check metrics for each label.
+# True, if you want to check metrics for each label. defauult is True.
 check_categorical_metrics: True
 
 # True or False

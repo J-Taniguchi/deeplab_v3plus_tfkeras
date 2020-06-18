@@ -38,7 +38,7 @@ valid_x_dirs = conf["valid_x_dirs"]
 valid_y_dirs = conf["valid_y_dirs"]
 
 test_x_dirs = conf["test_x_dirs"]
-
+input_type = conf.get("input_type", "image")
 # loss = conf["loss"]
 which_to_inference = conf["which_to_inference"]
 label = Label(label_file_path)
@@ -62,7 +62,7 @@ last_activation = model.layers[-1].name
 
 
 if "train" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+    x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs, input_type=input_type)
     x, y = make_xy_from_data_paths(x_paths,
                                    y_paths,
                                    image_size,
@@ -77,7 +77,7 @@ if "train" in which_to_inference:
                            last_activation=last_activation)
 
 if "valid" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_x_dirs)
+    x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_x_dirs, input_type=input_type)
     x, y = make_xy_from_data_paths(x_paths,
                                    y_paths,
                                    image_size,
@@ -94,7 +94,7 @@ if "valid" in which_to_inference:
 if "test" in which_to_inference:
     for i, test_data_dir in enumerate(test_x_dirs):
         test_name = test_data_dir.split(os.sep)[-1]
-        x_paths, _ = make_xy_path_list([test_data_dir], None)
+        x_paths, _ = make_xy_path_list([test_data_dir], None, input_type=input_type)
 
         mode = "max_confidence"
         x = []

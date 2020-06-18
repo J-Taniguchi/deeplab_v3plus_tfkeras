@@ -225,7 +225,8 @@ def make_xy_from_data_paths(x_paths,
                             y_paths,
                             image_size,
                             label,
-                            resize_or_crop="resize"):
+                            resize_or_crop="resize",
+                            data_type="image"):
     """make x and y from data paths.
 
     Args:
@@ -233,7 +234,7 @@ def make_xy_from_data_paths(x_paths,
         y_paths (list): list of path to y image or json. if None, y is exported as None
         image_size (tuple): model input and output size.(width, height)
         label (Label): class "Label" written in label.py
-        data_type (str): select "image" or "index_png" or "polygon"
+        data_type (str): select "image" or "npy"
         resize_or_crop (str): select "resize" or "crop". Defaults to "resize".
 
     Returns:
@@ -243,8 +244,11 @@ def make_xy_from_data_paths(x_paths,
     x = []
     crop_areas = []
     for i, x_path in enumerate(x_paths):
-        image = tf.io.read_file(x_path)
-        image = tf.image.decode_image(image, channels=3)
+        if data_type == "image":
+            image = tf.io.read_file(x_path)
+            image = tf.image.decode_image(image, channels=3)
+        else:
+            image = np.load(x_path)
         if resize_or_crop == "resize":
             image = tf.image.resize(image, image_size[::-1])
         elif resize_or_crop == "crop":
@@ -255,8 +259,8 @@ def make_xy_from_data_paths(x_paths,
             pass
         else:
             raise Exception("resize_or_crop must be 'resize' or 'crop'.")
-        out = np.zeros((image_size[1], image_size[0], 3))
-        out[0:image.shape[0], 0:image.shape[1]] = image[:, :]
+        out = np.zeros((image_size[1], image_size[0], image.shape[2]))
+        out[0:image.shape[0], 0:image.shape[1], :] = image[:, :, :]
         x.append(out)
     x = tf.convert_to_tensor(x)
     if y_paths is None:

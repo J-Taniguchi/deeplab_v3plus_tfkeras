@@ -25,7 +25,13 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
     return out
 
 
-def make_xy_path_list(x_paths, y_paths, img_exts=["png", "jpg"]):
+def make_xy_path_list(x_paths, y_paths, input_type="image"):
+    if input_type == "image":
+        input_exts = ["png", "jpg"]
+    elif input_type == "npy":
+        input_exts = ["npy"]
+    else:
+        raise Exception("input type must be 'image' or 'npy'")
     x = []
     y = []
     for i, x_path in enumerate(x_paths):
@@ -33,7 +39,7 @@ def make_xy_path_list(x_paths, y_paths, img_exts=["png", "jpg"]):
             y_path = y_paths[i]
 
         x0 = []
-        for ext in img_exts:
+        for ext in input_exts:
             x0.extend(glob(os.path.join(x_path, '*.' + ext)))
         x0.sort()
 

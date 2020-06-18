@@ -42,6 +42,7 @@ image_size = conf["image_size"]
 loss = conf["loss"]
 optimizer = conf["optimizer"]
 metrics = conf["metrics"]
+input_type = conf.get("input_type", "image")
 check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf["use_tensorboard"]
@@ -59,7 +60,7 @@ batch_size = batch_size * n_gpus
 preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
-train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs, input_type=input_type)
 n_train_data = len(train_x_paths)
 train_dataset, train_map_f = my_generator.make_path_generator(
     train_x_paths,
@@ -77,7 +78,7 @@ train_dataset = train_dataset.batch(batch_size)
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # make valid dataset
-valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
+valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs, input_type=input_type)
 n_valid_data = len(valid_x_paths)
 valid_dataset, valid_map_f = my_generator.make_path_generator(
     valid_x_paths,
