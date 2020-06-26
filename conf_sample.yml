@@ -2,9 +2,11 @@
 model_dir: path/to/model_dir
 
 label_file_path: path/to/label.csv
+n_extra_channels:0
 train_x_dirs:
     - path/to/train_x_dir1
     - path/to/train_x_dir2
+train_extra_x_dirs:
 
 train_y_dirs:
     - path/to/train_y_dir1
@@ -13,6 +15,9 @@ train_y_dirs:
 valid_x_dirs:
     - path/to/valid_x_dir1
     - path/to/valid_x_dir2
+
+valid_extra_x_dirs:
+
 
 valid_y_dirs:
     - path/to/valid_y_dir1
@@ -24,6 +29,8 @@ test_x_dirs:
     - path/to/test_x_dir2
 #if you don't use the value, write "~" like below.
 #test_data_paths: ~
+
+test_extra_x_dirs:
 
 which_to_inference:
     #- train
@@ -61,6 +68,8 @@ check_categorical_metrics: True
 
 # True or False
 use_tensorboard: True
+# default is model_dir
+tensorboard_dir: /home/taniguchi-j/shokusei/okayama/result
 
 # below is not supported now.
 # The length of class_weight must be same as the number of labels.

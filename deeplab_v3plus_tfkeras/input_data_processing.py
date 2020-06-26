@@ -25,12 +25,16 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
     return out
 
 
-def make_xy_path_list(x_paths, y_paths, img_exts=["png", "jpg"]):
+def make_xy_path_list(x_paths, y_paths, extra_x_paths=None, img_exts=["png", "jpg"]):
     x = []
     y = []
+    if extra_x_paths is not None:
+        extra_x = []
     for i, x_path in enumerate(x_paths):
         if y_paths is not None:
             y_path = y_paths[i]
+        if extra_x_paths is not None:
+            extra_x_path = extra_x_paths[i]
 
         x0 = []
         for ext in img_exts:
@@ -45,10 +49,21 @@ def make_xy_path_list(x_paths, y_paths, img_exts=["png", "jpg"]):
                 if os.path.exists(p):
                     y.append(p)
                 else:
-                    x0.remove(fpath)
-                    print("{} dose not exist. {} is removed from dataset.".format(p, fpath))
+                    raise Exception("{} dose not exist.".format(p))
+        if extra_x_paths is not None:
+            for fpath in x0:
+                base_name = os.path.basename(fpath)
+                f_name = os.path.splitext(base_name)[0]
+                p = os.path.join(extra_x_path, f_name + '.npy')
+                if os.path.exists(p):
+                    extra_x.append(p)
+                else:
+                    raise Exception("{} dose not exist.".format(p))
         x.extend(x0)
-    return x, y
+    if extra_x_paths is None:
+        return x, y
+    else:
+        return x, extra_x, y
 
 
 def make_xy_array(data_paths):

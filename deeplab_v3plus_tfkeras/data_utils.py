@@ -225,7 +225,7 @@ def make_xy_from_data_paths(x_paths,
                             y_paths,
                             image_size,
                             label,
-                            resize_or_crop="resize"):
+                            extra_x_paths=None):
     """make x and y from data paths.
 
     Args:
@@ -234,27 +234,15 @@ def make_xy_from_data_paths(x_paths,
         image_size (tuple): model input and output size.(width, height)
         label (Label): class "Label" written in label.py
         data_type (str): select "image" or "index_png" or "polygon"
-        resize_or_crop (str): select "resize" or "crop". Defaults to "resize".
 
     Returns:
         np.rray, np.array: x and y
 
     """
     x = []
-    crop_areas = []
     for i, x_path in enumerate(x_paths):
         image = tf.io.read_file(x_path)
         image = tf.image.decode_image(image, channels=3)
-        if resize_or_crop == "resize":
-            image = tf.image.resize(image, image_size[::-1])
-        elif resize_or_crop == "crop":
-            crop_area = get_random_crop_area(image.shape[0:2], image_size[::-1])
-            image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
-            crop_areas.append(crop_area)
-        elif resize_or_crop is False:
-            pass
-        else:
-            raise Exception("resize_or_crop must be 'resize' or 'crop'.")
         out = np.zeros((image_size[1], image_size[0], 3))
         out[0:image.shape[0], 0:image.shape[1]] = image[:, :]
         x.append(out)
@@ -264,28 +252,30 @@ def make_xy_from_data_paths(x_paths,
 
     y = []
     for i, y_path in enumerate(y_paths):
-        crop_area = crop_areas[i]
         if y_path is None:
             y.append(np.zeros((*image_size[::-1], label.n_labels), np.int32))
             continue
-
-        if resize_or_crop == "resize":
-            image = tf.io.read_file(y_path)
-            image = tf.image.decode_image(image, channels=3)
-            y0 = convert_image_array_to_y(image, label)
-            y.append(y0)
-
-        elif resize_or_crop == "crop":
-            image = tf.io.read_file(y_path)
-            image = tf.image.decode_image(image, channels=3)
-            image = image[crop_area[0]:crop_area[2], crop_area[1]:crop_area[3], :]
-            y0 = convert_image_array_to_y(image, label)
-            out = np.zeros((image_size[1], image_size[0], label.n_labels))
-            out[0:image.shape[0], 0:image.shape[1]] = y0[:, :]
-            y.append(out)
+        image = tf.io.read_file(y_path)
+        image = tf.image.decode_image(image, channels=3)
+        y0 = convert_image_array_to_y(image, label)
+        y.append(y0)
 
     y = tf.convert_to_tensor(y)
-    return x, y
+    if extra_x_paths is None:
+        return x, y
+    else:
+        extra_x = []
+        for i, extra_x_path in enumerate(extra_x_paths):
+            if type(extra_x_path) is str:
+                out = np.load(extra_x_path)
+            else:
+                out = np.load(extra_x_path.numpy())
+            if len(out.shape) == 2:
+                out = out[:, :, np.newaxis]
+            extra_x.append(out)
+        extra_x = tf.convert_to_tensor(extra_x)
+
+        return x, extra_x, y
 
 
 def convert_image_array_to_y(image_array, label):
@@ -299,14 +289,9 @@ def convert_image_array_to_y(image_array, label):
         type: .
 
     """
-    # y = tf.zeros((*(image_array).shape[:2], label.n_labels), np.float32)
-    # y = tf.zeros((*(image_array).shape[:2], 0), np.float32)
-    # print(y.shape)
     y = []
     for i in range(label.n_labels):
-        # y[:, :, i] = tf.reduce_all(tf.equal(image_array, label.color[i, :]), axis=2)
         y.append(tf.reduce_all(tf.equal(image_array, label.color[i, :]), axis=2))
-        # y = tf.concat([y, tmp], axis=2)
     y = tf.stack(y, axis=2)
     return y
 

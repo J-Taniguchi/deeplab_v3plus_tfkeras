@@ -31,13 +31,18 @@ label_file_path = conf["label_file_path"]
 batch_size = conf["batch_size"]
 image_size = conf["image_size"]
 
+n_extra_channels = conf.get("n_extra_channels", 0)
+
 train_x_dirs = conf["train_x_dirs"]
+train_extra_x_dirs = conf.get("train_extra_x_dirs", None)
 train_y_dirs = conf["train_y_dirs"]
 
 valid_x_dirs = conf["valid_x_dirs"]
+valid_extra_x_dirs = conf.get("valid_extra_x_dirs", None)
 valid_y_dirs = conf["valid_y_dirs"]
 
 test_x_dirs = conf["test_x_dirs"]
+test_extra_x_dirs = conf.get("test_extra_x_dirs", None)
 
 # loss = conf["loss"]
 which_to_inference = conf["which_to_inference"]
@@ -62,59 +67,110 @@ last_activation = model.layers[-1].name
 
 
 if "train" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
-    x, y = make_xy_from_data_paths(x_paths,
-                                   y_paths,
-                                   image_size,
-                                   label,
-                                   resize_or_crop="crop")
-    pred = model.predict(preprocess(x), batch_size=batch_size)
-    fpath = os.path.join(model_dir, "train_inference.h5")
-    save_inference_results(fpath,
-                           x=x,
-                           y=y,
-                           pred=pred,
-                           last_activation=last_activation)
+    if n_extra_channels == 0:
+        x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+        x, y = make_xy_from_data_paths(
+            x_paths,
+            y_paths,
+            image_size,
+            label)
+        pred = model.predict(preprocess(x), batch_size=batch_size)
+        fpath = os.path.join(model_dir, "train_inference.h5")
+        save_inference_results(
+            fpath,
+            x=x,
+            y=y,
+            pred=pred,
+            last_activation=last_activation)
+    else:
+        x_paths, extra_x_paths, y_paths =\
+            make_xy_path_list(
+                train_x_dirs,
+                train_y_dirs,
+                extra_x_paths=train_extra_x_dirs)
+        x, extra_x, y = make_xy_from_data_paths(
+            x_paths,
+            y_paths,
+            image_size,
+            label,
+            extra_x_paths=extra_x_paths)
+        pred = model.predict([preprocess(x), extra_x], batch_size=batch_size)
+        fpath = os.path.join(model_dir, "train_inference.h5")
+        save_inference_results(
+            fpath,
+            x=x,
+            y=y,
+            pred=pred,
+            last_activation=last_activation)
 
 if "valid" in which_to_inference:
-    x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_x_dirs)
-    x, y = make_xy_from_data_paths(x_paths,
-                                   y_paths,
-                                   image_size,
-                                   label,
-                                   resize_or_crop="crop")
-    pred = model.predict(preprocess(x), batch_size=batch_size)
-    fpath = os.path.join(model_dir, "valid_inference.h5")
-    save_inference_results(fpath,
-                           x=x,
-                           y=y,
-                           pred=pred,
-                           last_activation=last_activation)
+    if n_extra_channels == 0:
+        x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
+        x, y = make_xy_from_data_paths(
+            x_paths,
+            y_paths,
+            image_size,
+            label)
+        pred = model.predict(preprocess(x), batch_size=batch_size)
+        fpath = os.path.join(model_dir, "valid_inference.h5")
+        save_inference_results(
+            fpath,
+            x=x,
+            y=y,
+            pred=pred,
+            last_activation=last_activation)
+    else:
+        x_paths, extra_x_paths, y_paths =\
+            make_xy_path_list(
+                valid_x_dirs,
+                valid_y_dirs,
+                extra_x_paths=valid_extra_x_dirs)
+        x, extra_x, y = make_xy_from_data_paths(
+            x_paths,
+            y_paths,
+            image_size,
+            label,
+            extra_x_paths=extra_x_paths)
+        pred = model.predict([preprocess(x), extra_x], batch_size=batch_size)
+        fpath = os.path.join(model_dir, "valid_inference.h5")
+        save_inference_results(
+            fpath,
+            x=x,
+            y=y,
+            pred=pred,
+            last_activation=last_activation)
 
 if "test" in which_to_inference:
-    for i, test_data_dir in enumerate(test_x_dirs):
-        test_name = test_data_dir.split(os.sep)[-1]
-        x_paths, _ = make_xy_path_list([test_data_dir], None)
-
-        mode = "max_confidence"
-        x = []
-        pred = []
-        for x_path in tqdm(x_paths):
-            x0, pred0 = inference_large_img(
-                x_path,
-                model,
-                preprocess,
-                mode=mode,
-                threshold=0.5,
-                batch_size=batch_size)
-            x.append(x0)
-            pred.append(pred0)
-
-        x = np.array(x)
-        pred = np.array(pred)
-
-        fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
-        save_inference_results(fpath,
-                               x=x,
-                               pred=pred,
-                               last_activation=last_activation)
+    if n_extra_channels == 0:
+        for i, test_x_dir in enumerate(test_x_dirs):
+            test_name = test_x_dirs.split(os.sep)[-1]
+            x_paths, _ = make_xy_path_list([test_x_dir], None)
+            x, _ = make_xy_from_data_paths(
+                x_paths,
+                None,
+                image_size,
+                label)
+            pred = model.predict(preprocess(x), batch_size=batch_size)
+            fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
+            save_inference_results(
+                fpath,
+                x=x,
+                pred=pred,
+                last_activation=last_activation)
+    else:
+        for i, test_x_dir in enumerate(test_x_dirs):
+            test_name = test_x_dirs.split(os.sep)[-1]
+            x_paths, extra_x_paths, _ = make_xy_path_list([test_x_dir], None, [test_extra_x_dirs[i]])
+            x, extra_x, _ = make_xy_from_data_paths(
+                x_paths,
+                None,
+                image_size,
+                label,
+                extra_x_paths=extra_x_paths)
+            pred = model.predict([preprocess(x), extra_x], batch_size=batch_size)
+            fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
+            save_inference_results(
+                fpath,
+                x=x,
+                pred=pred,
+                last_activation=last_activation)

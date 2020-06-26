@@ -29,10 +29,14 @@ model_dir = conf["model_dir"]
 
 label_file_path = conf["label_file_path"]
 
+n_extra_channels = conf.get("n_extra_channels", 0)
+
 train_x_dirs = conf["train_x_dirs"]
+train_extra_x_dirs = conf.get("train_extra_x_dirs", None)
 train_y_dirs = conf["train_y_dirs"]
 
 valid_x_dirs = conf["valid_x_dirs"]
+valid_extra_x_dirs = conf.get("valid_extra_x_dirs", None)
 valid_y_dirs = conf["valid_y_dirs"]
 
 batch_size = conf["batch_size"]
@@ -44,7 +48,7 @@ optimizer = conf["optimizer"]
 metrics = conf["metrics"]
 check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
-use_tensorboard = conf["use_tensorboard"]
+use_tensorboard = conf.get("use_tensorboard", False)
 
 label = Label(label_file_path)
 if class_weight is not None:
@@ -59,35 +63,58 @@ batch_size = batch_size * n_gpus
 preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
-train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
-n_train_data = len(train_x_paths)
-train_dataset, train_map_f = my_generator.make_path_generator(
-    train_x_paths,
-    train_y_paths,
-    image_size,
-    label,
-    preprocess,
-    augmentation=True,
-    # augmentation=False,
-    resize_or_crop="crop")
-
+if n_extra_channels == 0:
+    train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+    n_train_data = len(train_x_paths)
+    train_dataset, train_map_f = my_generator.make_path_generator(
+        train_x_paths,
+        train_y_paths,
+        image_size,
+        label,
+        preprocess,
+        augmentation=True,
+        # augmentation=False,
+    )
+else:
+    train_x_paths, train_y_paths, train_extra_x_paths = make_xy_path_list(train_x_dirs, train_y_dirs, extra_x_paths=train_extra_x_dirs)
+    n_train_data = len(train_x_paths)
+    train_dataset, train_map_f = my_generator.make_generator_with_extra_x(
+        train_x_paths,
+        train_extra_x_paths,
+        train_y_paths,
+        image_size,
+        label,
+        preprocess,
+        augmentation=True,
+        # augmentation=False,
+    )
 train_dataset = train_dataset.shuffle(n_train_data)
 train_dataset = train_dataset.map(train_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 train_dataset = train_dataset.batch(batch_size)
 train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
 
 # make valid dataset
-valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
-n_valid_data = len(valid_x_paths)
-valid_dataset, valid_map_f = my_generator.make_path_generator(
-    valid_x_paths,
-    valid_y_paths,
-    image_size,
-    label,
-    preprocess,
-    augmentation=False,
-    resize_or_crop="crop")
-
+if n_extra_channels == 0:
+    valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
+    n_valid_data = len(valid_x_paths)
+    valid_dataset, valid_map_f = my_generator.make_path_generator(
+        valid_x_paths,
+        valid_y_paths,
+        image_size,
+        label,
+        preprocess,
+        augmentation=False)
+else:
+    valid_x_paths, valid_y_paths, valid_extra_x_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs, extra_x_paths=valid_extra_x_dirs)
+    n_valid_data = len(valid_x_paths)
+    valid_dataset, valid_map_f = my_generator.make_generator_with_extra_x(
+        valid_x_paths,
+        valid_extra_x_paths,
+        valid_y_paths,
+        image_size,
+        label,
+        preprocess,
+        augmentation=False)
 valid_dataset = valid_dataset.map(valid_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 valid_dataset = valid_dataset.batch(batch_size)
 valid_dataset = valid_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
