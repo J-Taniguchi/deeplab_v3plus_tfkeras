@@ -337,60 +337,37 @@ def get_random_crop_area(image_size, out_size):
     return (xmin, ymin, xmax, ymax)
 
 
-def save_inference_results(fpath, x, pred, last_activation, y=None):
+def save_inference_results(fpath, x, pred, last_activation, y=[], extra_x=[], basenames=[]):
     with h5py.File(fpath, "w") as f:
-        if y is None:
-            f.create_dataset("have_y", data=False)
-        else:
-            f.create_dataset("have_y", data=True)
-        # this case means inference for different image sizes.
-        if x.dtype == 'O':
-            f.create_dataset("dataset_type", data="list")
-            f.create_dataset("n_images", data=len(x))
-            for i in range(len(x)):
-                f.create_dataset("x/{}".format(i), data=x[i])
-                f.create_dataset("pred/{}".format(i), data=pred[i])
+        f.create_dataset("x", data=x)
+        f.create_dataset("y", data=y)
+        f.create_dataset("extra_x", data=extra_x)
+        if len(basenames) != 0:
+            basenames = [basename.encode("utf8") for basename in basenames]
+        f.create_dataset("basenames", data=basenames)
 
-                if y is not None:
-                    f.create_dataset("y/{}".format(i), data=y[i])
-
-        else:
-            f.create_dataset("dataset_type", data="array")
-            f.create_dataset("x", data=x)
-            if y is not None:
-                f.create_dataset("y", data=y)
-            f.create_dataset("pred", data=pred)
+        f.create_dataset("pred", data=pred)
         f.create_dataset("last_activation", data=last_activation)
 
 
 def load_inference_results(fpath):
     with h5py.File(fpath, "r") as f:
-        dataset_type = f["dataset_type"][()]
-        have_y = f["have_y"][()]
-        print(dataset_type)
-        if dataset_type == "list":
-            x = []
-            if have_y:
-                y = []
-            else:
-                y = None
-            pred = []
-            n_images = f["n_images"][()]
-            for i in range(n_images):
-                x.append(f["x/{}".format(i)][()])
-                pred.append(f["pred/{}".format(i)][()])
-                if have_y:
-                    y.append(f["y/{}".format(i)][()])
-
-        else:
-            x = f["x"][()]
-            if have_y:
-                y = f["y"][()]
-            else:
-                y = None
-            pred = f["pred"][()]
+        x = f["x"][()]
+        extra_x = f["extra_x"][()]
+        y = f["y"][()]
+        pred = f["pred"][()]
+        basenames = f["basenames"][()]
         last_activation = f["last_activation"][()]
-    return x, y, pred, last_activation
+        if len(y) == 0:
+            y = None
+        if len(basenames) == 0:
+            basenames = None
+        else:
+            basenames = [basename.decode("utf8") for basename in basenames]
+        if len(extra_x) == 0:
+            extra_x = None
+
+    return x, extra_x, y, pred, basenames, last_activation
 
 
 def make_pascal_voc_label_csv():

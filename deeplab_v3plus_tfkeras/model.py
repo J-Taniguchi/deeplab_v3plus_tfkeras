@@ -221,9 +221,9 @@ def deeplab_v3plus_transfer_extra_channels(n_categories,
 
     x_dec = layers.concatenate([x_dec, x_extra], name="concat_extra")
 
-    x_dec = SepConv_BN(x_dec, 256, prefix="dec2", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
-    x_dec = SepConv_BN(x_dec, 256, prefix="dec2", suffix="2", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
-    x_dec = SepConv_BN(x_dec, 256, prefix="dec2", suffix="3", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
+    x_dec = SepConv_BN(x_dec, 128, prefix="dec2", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
+    x_dec = SepConv_BN(x_dec, 64, prefix="dec2", suffix="2", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
+    x_dec = SepConv_BN(x_dec, 32, prefix="dec2", suffix="3", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
 
     x_dec = SepConv_BN(x_dec, n_categories, prefix="dec_last", suffix="1", strides=1, dilation_rate=1, batch_renorm=batch_renorm)
 

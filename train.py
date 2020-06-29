@@ -21,7 +21,7 @@ import tensorflow.keras as keras
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16, deeplab_v3plus_transfer_extra_channels
 from deeplab_v3plus_tfkeras.metrics import make_IoU, make_categorical_IoU, make_F1score, make_categorical_F1score
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
+from deeplab_v3plus_tfkeras.input_data_processing import make_data_path_list
 import deeplab_v3plus_tfkeras.data_gen as my_generator
 import deeplab_v3plus_tfkeras.loss as my_loss_func
 import deeplab_v3plus_tfkeras.mod_xception as xception
@@ -51,6 +51,7 @@ metrics = conf["metrics"]
 check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf.get("use_tensorboard", False)
+use_batch_renorm = conf.get("use_batch_renorm", False)
 
 label = Label(label_file_path)
 if class_weight is not None:
@@ -66,7 +67,9 @@ preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
 if n_extra_channels == 0:
-    train_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+    train_x_paths, train_y_paths = make_data_path_list(
+        train_x_dirs,
+        y_paths=train_y_dirs)
     n_train_data = len(train_x_paths)
     train_dataset, train_map_f = my_generator.make_path_generator(
         train_x_paths,
@@ -78,7 +81,10 @@ if n_extra_channels == 0:
         # augmentation=False,
     )
 else:
-    train_x_paths, train_extra_x_paths, train_y_paths = make_xy_path_list(train_x_dirs, train_y_dirs, extra_x_paths=train_extra_x_dirs)
+    train_x_paths, train_y_paths, train_extra_x_paths = make_data_path_list(
+        train_x_dirs,
+        y_paths=train_y_dirs,
+        extra_x_paths=train_extra_x_dirs)
     n_train_data = len(train_x_paths)
     train_dataset, train_map_f = my_generator.make_generator_with_extra_x(
         train_x_paths,
@@ -97,7 +103,9 @@ train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE
 
 # make valid dataset
 if n_extra_channels == 0:
-    valid_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
+    valid_x_paths, valid_y_paths = make_data_path_list(
+        valid_x_dirs,
+        y_paths=valid_y_dirs)
     n_valid_data = len(valid_x_paths)
     valid_dataset, valid_map_f = my_generator.make_path_generator(
         valid_x_paths,
@@ -107,7 +115,10 @@ if n_extra_channels == 0:
         preprocess,
         augmentation=False)
 else:
-    valid_x_paths, valid_extra_x_paths, valid_y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs, extra_x_paths=valid_extra_x_dirs)
+    valid_x_paths, valid_y_paths, valid_extra_x_paths = make_data_path_list(
+        valid_x_dirs,
+        y_paths=valid_y_dirs,
+        extra_x_paths=valid_extra_x_dirs)
     n_valid_data = len(valid_x_paths)
     valid_dataset, valid_map_f = my_generator.make_generator_with_extra_x(
         valid_x_paths,
@@ -202,7 +213,7 @@ if n_gpus >= 2:
                 encoder_end_layer_name,
                 freeze_encoder=False,
                 output_activation=output_activation,
-                batch_renorm=False)
+                batch_renorm=use_batch_renorm)
         else:
             model = deeplab_v3plus_transfer_extra_channels(
                 label.n_labels,
@@ -212,7 +223,7 @@ if n_gpus >= 2:
                 n_extra_channels=n_extra_channels,
                 freeze_encoder=False,
                 output_activation=output_activation,
-                batch_renorm=False)
+                batch_renorm=use_batch_renorm)
 
         model.compile(optimizer=opt,
                       loss=loss_function,
@@ -232,7 +243,7 @@ else:
             encoder_end_layer_name,
             freeze_encoder=False,
             output_activation=output_activation,
-            batch_renorm=False,
+            batch_renorm=use_batch_renorm,
         )
     else:
         model = deeplab_v3plus_transfer_extra_channels(
@@ -243,7 +254,7 @@ else:
             n_extra_channels=n_extra_channels,
             freeze_encoder=False,
             output_activation=output_activation,
-            batch_renorm=False)
+            batch_renorm=use_batch_renorm)
 
     model.compile(optimizer=opt,
                   loss=loss_function,

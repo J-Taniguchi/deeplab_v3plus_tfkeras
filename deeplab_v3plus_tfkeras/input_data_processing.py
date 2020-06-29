@@ -24,10 +24,18 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
 
     return out
 
-
-def make_xy_path_list(x_paths, y_paths, extra_x_paths=None, img_exts=["png", "jpg"]):
+# TODO: x_pathsというよりx_dirs
+def make_data_path_list(
+    x_paths,
+    y_paths=None,
+    extra_x_paths=None,
+    img_exts=["png", "jpg"],
+    return_basenames=False):
     x = []
     y = []
+    if return_basenames:
+        basenames = []
+
     if extra_x_paths is not None:
         extra_x = []
     for i, x_path in enumerate(x_paths):
@@ -41,29 +49,33 @@ def make_xy_path_list(x_paths, y_paths, extra_x_paths=None, img_exts=["png", "jp
             x0.extend(glob(os.path.join(x_path, '*.' + ext)))
         x0.sort()
 
-        if y_paths is not None:
-            for fpath in x0:
-                base_name = os.path.basename(fpath)
-                image_name = os.path.splitext(base_name)[0]
-                p = os.path.join(y_path, image_name + '.png')
+        for fpath in x0:
+            base_name = os.path.splitext(os.path.basename(fpath))[0]
+            if y_paths is not None:
+                p = os.path.join(y_path, base_name + '.png')
                 if os.path.exists(p):
                     y.append(p)
                 else:
                     raise Exception("{} dose not exist.".format(p))
-        if extra_x_paths is not None:
-            for fpath in x0:
-                base_name = os.path.basename(fpath)
-                f_name = os.path.splitext(base_name)[0]
-                p = os.path.join(extra_x_path, f_name + '.npy')
+            if extra_x_paths is not None:
+                p = os.path.join(extra_x_path, base_name + '.npy')
                 if os.path.exists(p):
                     extra_x.append(p)
                 else:
                     raise Exception("{} dose not exist.".format(p))
+            if return_basenames:
+                basenames.append(base_name)
         x.extend(x0)
-    if extra_x_paths is None:
-        return x, y
-    else:
-        return x, extra_x, y
+
+    returns = [x]
+    if y_paths is not None:
+        returns.append(y)
+    if extra_x_paths is not None:
+        returns.append(extra_x)
+    if return_basenames:
+        returns.append(basenames)
+    # return order is (x, y, extra_x, basenames)
+    return tuple(returns)
 
 
 def make_xy_array(data_paths):

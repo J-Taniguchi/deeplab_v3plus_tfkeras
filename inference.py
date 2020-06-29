@@ -12,13 +12,12 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 import tensorflow as tf
 import tensorflow.keras as keras
 # from tensorflow.keras.utils import get_custom_objects
-import numpy as np
-from tqdm import tqdm
+# import numpy as np
+# from tqdm import tqdm
 
 from deeplab_v3plus_tfkeras.data_utils import make_xy_from_data_paths
-from deeplab_v3plus_tfkeras.data_utils import inference_large_img
 from deeplab_v3plus_tfkeras.data_utils import save_inference_results
-from deeplab_v3plus_tfkeras.input_data_processing import make_xy_path_list
+from deeplab_v3plus_tfkeras.input_data_processing import make_data_path_list
 from deeplab_v3plus_tfkeras.label import Label
 # from deeplab_v3plus_tfkeras.metrics import make_IoU
 # import deeplab_v3plus_tfkeras.loss as my_loss_func
@@ -44,7 +43,6 @@ valid_y_dirs = conf["valid_y_dirs"]
 test_x_dirs = conf["test_x_dirs"]
 test_extra_x_dirs = conf.get("test_extra_x_dirs", None)
 
-# loss = conf["loss"]
 which_to_inference = conf["which_to_inference"]
 label = Label(label_file_path)
 n_gpus = len(use_devices.split(','))
@@ -52,6 +50,7 @@ n_gpus = len(use_devices.split(','))
 batch_size = batch_size * n_gpus
 
 model_file = os.path.join(model_dir, 'best_model.h5')
+# model_file = os.path.join(model_dir, 'final_epoch.h5')
 if n_gpus >= 2:
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
@@ -65,10 +64,9 @@ model.summary()
 preprocess = keras.applications.xception.preprocess_input
 last_activation = model.layers[-1].name
 
-
 if "train" in which_to_inference:
     if n_extra_channels == 0:
-        x_paths, y_paths = make_xy_path_list(train_x_dirs, train_y_dirs)
+        x_paths, y_paths, basenames = make_data_path_list(train_x_dirs, train_y_dirs, return_basenames=True)
         x, y = make_xy_from_data_paths(
             x_paths,
             y_paths,
@@ -78,16 +76,18 @@ if "train" in which_to_inference:
         fpath = os.path.join(model_dir, "train_inference.h5")
         save_inference_results(
             fpath,
-            x=x,
+            x,
+            pred,
+            last_activation,
             y=y,
-            pred=pred,
-            last_activation=last_activation)
+            basenames=basenames)
     else:
-        x_paths, extra_x_paths, y_paths =\
-            make_xy_path_list(
+        x_paths, y_paths, extra_x_paths, basenames =\
+            make_data_path_list(
                 train_x_dirs,
                 train_y_dirs,
-                extra_x_paths=train_extra_x_dirs)
+                extra_x_paths=train_extra_x_dirs,
+                return_basenames=True)
         x, extra_x, y = make_xy_from_data_paths(
             x_paths,
             y_paths,
@@ -98,14 +98,16 @@ if "train" in which_to_inference:
         fpath = os.path.join(model_dir, "train_inference.h5")
         save_inference_results(
             fpath,
-            x=x,
+            x,
+            pred,
+            last_activation,
             y=y,
-            pred=pred,
-            last_activation=last_activation)
+            extra_x=extra_x,
+            basenames=basenames)
 
 if "valid" in which_to_inference:
     if n_extra_channels == 0:
-        x_paths, y_paths = make_xy_path_list(valid_x_dirs, valid_y_dirs)
+        x_paths, y_paths, basenames = make_data_path_list(valid_x_dirs, valid_y_dirs, return_basenames=True)
         x, y = make_xy_from_data_paths(
             x_paths,
             y_paths,
@@ -115,16 +117,18 @@ if "valid" in which_to_inference:
         fpath = os.path.join(model_dir, "valid_inference.h5")
         save_inference_results(
             fpath,
-            x=x,
+            x,
+            pred,
+            last_activation,
             y=y,
-            pred=pred,
-            last_activation=last_activation)
+            basenames=basenames)
     else:
-        x_paths, extra_x_paths, y_paths =\
-            make_xy_path_list(
+        x_paths, y_paths, extra_x_paths, basenames =\
+            make_data_path_list(
                 valid_x_dirs,
                 valid_y_dirs,
-                extra_x_paths=valid_extra_x_dirs)
+                extra_x_paths=valid_extra_x_dirs,
+                return_basenames=True)
         x, extra_x, y = make_xy_from_data_paths(
             x_paths,
             y_paths,
@@ -135,16 +139,18 @@ if "valid" in which_to_inference:
         fpath = os.path.join(model_dir, "valid_inference.h5")
         save_inference_results(
             fpath,
-            x=x,
+            x,
+            pred,
+            last_activation,
             y=y,
-            pred=pred,
-            last_activation=last_activation)
+            extra_x=extra_x,
+            basenames=basenames)
 
 if "test" in which_to_inference:
     if n_extra_channels == 0:
         for i, test_x_dir in enumerate(test_x_dirs):
             test_name = test_x_dirs.split(os.sep)[-1]
-            x_paths, _ = make_xy_path_list([test_x_dir], None)
+            x_paths, basenames = make_data_path_list([test_x_dir], return_basenames=True)
             x, _ = make_xy_from_data_paths(
                 x_paths,
                 None,
@@ -154,13 +160,18 @@ if "test" in which_to_inference:
             fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
             save_inference_results(
                 fpath,
-                x=x,
-                pred=pred,
-                last_activation=last_activation)
+                x,
+                pred,
+                last_activation,
+                basenames=basenames)
     else:
         for i, test_x_dir in enumerate(test_x_dirs):
             test_name = test_x_dirs.split(os.sep)[-1]
-            x_paths, extra_x_paths, _ = make_xy_path_list([test_x_dir], None, [test_extra_x_dirs[i]])
+            x_paths, extra_x_paths, basenames =\
+                make_data_path_list(
+                    [test_x_dir],
+                    extra_x_paths=[test_extra_x_dirs[i]],
+                    return_basenames=True)
             x, extra_x, _ = make_xy_from_data_paths(
                 x_paths,
                 None,
@@ -171,6 +182,8 @@ if "test" in which_to_inference:
             fpath = os.path.join(model_dir, "test_" + test_name + "_inference.h5")
             save_inference_results(
                 fpath,
-                x=x,
-                pred=pred,
-                last_activation=last_activation)
+                x,
+                pred,
+                last_activation,
+                extra_x=extra_x,
+                basenames=basenames)
