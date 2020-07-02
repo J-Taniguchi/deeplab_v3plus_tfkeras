@@ -1,7 +1,7 @@
 import os
 import sys
 import joblib
-n_jobs = 8
+
 import yaml
 
 from deeplab_v3plus_tfkeras.label import Label
@@ -20,10 +20,12 @@ label_file_path = conf["label_file_path"]
 test_x_dirs = conf["test_x_dirs"]
 
 which_to_visualise = conf["which_to_visualise"]
+njobs_for_visualise = conf.get("njobs_for_visualise", 1)
 
 fig_dir = os.path.join(model_dir, "figure")
 label = Label(label_file_path)
 
+n_jobs = njobs_for_visualise
 
 # train data
 if "train" in which_to_visualise:

@@ -43,14 +43,15 @@ valid_y_dirs = conf["valid_y_dirs"]
 test_x_dirs = conf["test_x_dirs"]
 test_extra_x_dirs = conf.get("test_extra_x_dirs", None)
 
+model_for_inference = conf.get("model_for_inference", "best_model")
 which_to_inference = conf["which_to_inference"]
 label = Label(label_file_path)
 n_gpus = len(use_devices.split(','))
 
 batch_size = batch_size * n_gpus
 
-model_file = os.path.join(model_dir, 'best_model.h5')
-# model_file = os.path.join(model_dir, 'final_epoch.h5')
+model_file = os.path.join(model_dir, model_for_inference + '.h5')
+
 if n_gpus >= 2:
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
@@ -149,9 +150,9 @@ if "valid" in which_to_inference:
 if "test" in which_to_inference:
     if n_extra_channels == 0:
         for i, test_x_dir in enumerate(test_x_dirs):
-            test_name = test_x_dirs.split(os.sep)[-1]
+            test_name = test_x_dir.split(os.sep)[-1]
             x_paths, basenames = make_data_path_list([test_x_dir], return_basenames=True)
-            x, _ = make_xy_from_data_paths(
+            x = make_xy_from_data_paths(
                 x_paths,
                 None,
                 image_size,
@@ -166,13 +167,13 @@ if "test" in which_to_inference:
                 basenames=basenames)
     else:
         for i, test_x_dir in enumerate(test_x_dirs):
-            test_name = test_x_dirs.split(os.sep)[-1]
+            test_name = test_x_dir.split(os.sep)[-1]
             x_paths, extra_x_paths, basenames =\
                 make_data_path_list(
                     [test_x_dir],
                     extra_x_paths=[test_extra_x_dirs[i]],
                     return_basenames=True)
-            x, extra_x, _ = make_xy_from_data_paths(
+            x, extra_x = make_xy_from_data_paths(
                 x_paths,
                 None,
                 image_size,

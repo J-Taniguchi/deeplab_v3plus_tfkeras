@@ -236,7 +236,7 @@ def make_xy_from_data_paths(x_paths,
         data_type (str): select "image" or "index_png" or "polygon"
 
     Returns:
-        np.rray, np.array: x and y
+        np.rray, np.array: x (,extra_x, y)
 
     """
     x = []
