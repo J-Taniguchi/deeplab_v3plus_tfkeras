@@ -49,15 +49,13 @@ def make_path_generator(img_paths,
                         label: Label,
                         preprocess=None,
                         augmentation=True,
-                        resize_or_crop="resize",
                         ):
     def map_f(x_path, y_path):
         x, y = make_xy_from_data_paths(
             [x_path],
             [y_path],
             image_size,
-            label,
-            resize_or_crop=resize_or_crop)
+            label)
         x = x[0]
         y = y[0]
 
@@ -85,4 +83,57 @@ def make_path_generator(img_paths,
         return x_out, y_out
 
     ds = tf.data.Dataset.from_tensor_slices((img_paths, seg_img_paths))
+    return ds, wrap_mapf
+
+
+def make_generator_with_extra_x(img_paths,
+                                extra_x_paths,
+                                seg_img_paths,
+                                image_size,
+                                label: Label,
+                                preprocess=None,
+                                augmentation=True,
+                                ):
+    def map_f(x_path, extra_x_path, y_path):
+        x, extra_x, y = make_xy_from_data_paths(
+            [x_path],
+            [y_path],
+            image_size,
+            label,
+            extra_x_paths=[extra_x_path])
+        x = x[0]
+        extra_x = extra_x[0]
+        y = y[0]
+
+        if augmentation is True:
+            # image_size for data_augment is (height, width)
+            x, y, extra_x = data_augment(
+                x,
+                y,
+                extra_x=extra_x,
+                image_size=image_size,
+                p=0.95)
+
+        x = tf.cast(x, tf.float32)
+        y = tf.cast(y, tf.float32)
+        extra_x = tf.cast(extra_x, tf.float32)
+
+        if preprocess is None:
+            x = (x / 127.5) - 1
+        else:
+            x = preprocess(x)
+
+        return x, extra_x, y
+
+    def wrap_mapf(x_path, extra_x_path, y_path):
+        x_out, extra_x_out, y_out = tf.py_function(
+            map_f,
+            inp=[x_path, extra_x_path, y_path],
+            Tout=(tf.float32, tf.float32, tf.float32))
+        # want to write like below.
+        return (x_out, extra_x_out), y_out
+        # but it seems bug.
+        # return (x_out, y_out), extra_x_out
+
+    ds = tf.data.Dataset.from_tensor_slices((img_paths, extra_x_paths, seg_img_paths))
     return ds, wrap_mapf
