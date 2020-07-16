@@ -21,8 +21,7 @@ import tensorflow.keras as keras
 from deeplab_v3plus_tfkeras.model import deeplab_v3plus_transfer_os16, deeplab_v3plus_transfer_extra_channels
 from deeplab_v3plus_tfkeras.metrics import make_IoU, make_categorical_IoU, make_F1score, make_categorical_F1score
 from deeplab_v3plus_tfkeras.label import Label
-from deeplab_v3plus_tfkeras.input_data_processing import make_data_path_list
-import deeplab_v3plus_tfkeras.data_gen as my_generator
+from deeplab_v3plus_tfkeras.input_data_processing import make_dataset
 import deeplab_v3plus_tfkeras.loss as my_loss_func
 import deeplab_v3plus_tfkeras.mod_xception as xception
 tf.compat.v1.enable_eager_execution()
@@ -66,72 +65,32 @@ os.makedirs(out_dir, exist_ok=True)
 preprocess = keras.applications.xception.preprocess_input
 
 # make train dataset
-if n_extra_channels == 0:
-    train_x_paths, train_y_paths = make_data_path_list(
-        train_x_dirs,
-        y_paths=train_y_dirs)
-    n_train_data = len(train_x_paths)
-    train_dataset, train_map_f = my_generator.make_path_generator(
-        train_x_paths,
-        train_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=True,
-        # augmentation=False,
-    )
-else:
-    train_x_paths, train_y_paths, train_extra_x_paths = make_data_path_list(
-        train_x_dirs,
-        y_paths=train_y_dirs,
-        extra_x_paths=train_extra_x_dirs)
-    n_train_data = len(train_x_paths)
-    train_dataset, train_map_f = my_generator.make_generator_with_extra_x(
-        train_x_paths,
-        train_extra_x_paths,
-        train_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=True,
-        # augmentation=False,
-    )
-train_dataset = train_dataset.shuffle(n_train_data)
-train_dataset = train_dataset.map(train_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-train_dataset = train_dataset.batch(batch_size)
-train_dataset = train_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+train_dataset, train_path_list = make_dataset(
+    train_x_dirs,
+    image_size,
+    label,
+    preprocess,
+    batch_size,
+    y_dirs=train_y_dirs,
+    extra_x_dirs=train_extra_x_dirs,
+    n_extra_channels=n_extra_channels,
+    data_augment=True,
+    shuffle=True
+)
 
 # make valid dataset
-if n_extra_channels == 0:
-    valid_x_paths, valid_y_paths = make_data_path_list(
-        valid_x_dirs,
-        y_paths=valid_y_dirs)
-    n_valid_data = len(valid_x_paths)
-    valid_dataset, valid_map_f = my_generator.make_path_generator(
-        valid_x_paths,
-        valid_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=False)
-else:
-    valid_x_paths, valid_y_paths, valid_extra_x_paths = make_data_path_list(
-        valid_x_dirs,
-        y_paths=valid_y_dirs,
-        extra_x_paths=valid_extra_x_dirs)
-    n_valid_data = len(valid_x_paths)
-    valid_dataset, valid_map_f = my_generator.make_generator_with_extra_x(
-        valid_x_paths,
-        valid_extra_x_paths,
-        valid_y_paths,
-        image_size,
-        label,
-        preprocess,
-        augmentation=False)
-
-valid_dataset = valid_dataset.map(valid_map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-valid_dataset = valid_dataset.batch(batch_size)
-valid_dataset = valid_dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+valid_dataset, valid_path_list = make_dataset(
+    valid_x_dirs,
+    image_size,
+    label,
+    preprocess,
+    batch_size,
+    y_dirs=valid_y_dirs,
+    extra_x_dirs=valid_extra_x_dirs,
+    n_extra_channels=n_extra_channels,
+    data_augment=False,
+    shuffle=False
+)
 
 # define loss function
 if output_activation == "softmax":
@@ -283,6 +242,9 @@ if use_tensorboard:
         shutil.rmtree(log_dir)
 
 # training
+n_train_data = len(train_path_list["x"])
+n_valid_data = len(valid_path_list["x"])
+
 n_train_batch = int(np.ceil(n_train_data / batch_size))
 n_valid_batch = int(np.ceil(n_valid_data / batch_size))
 print("train batch:{}".format(n_train_batch))

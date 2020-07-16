@@ -1,9 +1,58 @@
 import os
 # import sys
 
+import tensorflow as tf
 import h5py
 import numpy as np
 from glob import glob
+
+from .data_gen import make_generator, make_generator_with_extra_x
+
+
+def make_dataset(x_dirs,
+                 image_size,
+                 label,
+                 preprocess,
+                 batch_size,
+                 y_dirs=None,
+                 extra_x_dirs=None,
+                 n_extra_channels=0,
+                 data_augment=False,
+                 shuffle=False):
+    if n_extra_channels == 0:
+        path_list = make_data_path_list(
+            x_dirs,
+            y_dirs=y_dirs)
+        n_data = len(path_list["x"])
+        dataset, map_f = make_generator(
+            path_list["x"],
+            image_size,
+            label,
+            seg_img_paths=path_list["y"],
+            preprocess=preprocess,
+            augmentation=data_augment,
+        )
+    else:
+        path_list = make_data_path_list(
+            x_dirs,
+            y_dirs=y_dirs,
+            extra_x_dirs=extra_x_dirs)
+        n_data = len(path_list["x"])
+        dataset, map_f = make_generator_with_extra_x(
+            path_list["x"],
+            path_list["extra_x"],
+            image_size,
+            label,
+            seg_img_paths=path_list["y"],
+            preprocess=preprocess,
+            augmentation=data_augment)
+    if shuffle:
+        dataset = dataset.shuffle(n_data)
+    dataset = dataset.map(map_f, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
+    return dataset, path_list
 
 
 def check_data_paths(data_paths, mixed_type_is_error=False):
@@ -24,58 +73,61 @@ def check_data_paths(data_paths, mixed_type_is_error=False):
 
     return out
 
-# TODO: x_pathsというよりx_dirs
-def make_data_path_list(
-    x_paths,
-    y_paths=None,
-    extra_x_paths=None,
-    img_exts=["png", "jpg"],
-    return_basenames=False):
+
+def make_data_path_list(x_dirs,
+                        y_dirs=None,
+                        extra_x_dirs=None,
+                        img_exts=["png", "jpg"]):
     x = []
     y = []
-    if return_basenames:
-        basenames = []
+    basenames = []
 
-    if extra_x_paths is not None:
+    if extra_x_dirs is not None:
         extra_x = []
-    for i, x_path in enumerate(x_paths):
-        if y_paths is not None:
-            y_path = y_paths[i]
-        if extra_x_paths is not None:
-            extra_x_path = extra_x_paths[i]
+    for i, x_dir in enumerate(x_dirs):
+        if y_dirs is not None:
+            y_dir = y_dirs[i]
+        if extra_x_dirs is not None:
+            extra_x_dir = extra_x_dirs[i]
 
         x0 = []
         for ext in img_exts:
-            x0.extend(glob(os.path.join(x_path, '*.' + ext)))
+            x0.extend(glob(os.path.join(x_dir, '*.' + ext)))
         x0.sort()
 
         for fpath in x0:
             base_name = os.path.splitext(os.path.basename(fpath))[0]
-            if y_paths is not None:
-                p = os.path.join(y_path, base_name + '.png')
+            if y_dirs is not None:
+                p = os.path.join(y_dir, base_name + '.png')
                 if os.path.exists(p):
                     y.append(p)
                 else:
                     raise Exception("{} dose not exist.".format(p))
-            if extra_x_paths is not None:
-                p = os.path.join(extra_x_path, base_name + '.npy')
+            if extra_x_dirs is not None:
+                p = os.path.join(extra_x_dir, base_name + '.npy')
                 if os.path.exists(p):
                     extra_x.append(p)
                 else:
                     raise Exception("{} dose not exist.".format(p))
-            if return_basenames:
-                basenames.append(base_name)
+            basenames.append(base_name)
         x.extend(x0)
 
-    returns = [x]
-    if y_paths is not None:
-        returns.append(y)
-    if extra_x_paths is not None:
-        returns.append(extra_x)
-    if return_basenames:
-        returns.append(basenames)
-    # return order is (x, y, extra_x, basenames)
-    return tuple(returns)
+    path_list = dict()
+    path_list["x"] = x
+
+    if y_dirs is None:
+        path_list["y"] = None
+    else:
+        path_list["y"] = y
+
+    if extra_x_dirs is None:
+        path_list["extra_x"] = None
+    else:
+        path_list["extra_x"] = extra_x
+
+    path_list["basenames"] = basenames
+
+    return path_list
 
 
 def make_xy_array(data_paths):

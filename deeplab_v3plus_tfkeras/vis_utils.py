@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import numpy as np
 # import matplotlib
@@ -8,7 +9,99 @@ import cv2
 # matplotlib.use('Agg')
 
 
-def visualise_inference_result(
+def visualise_inference_result(i,
+                               path_list,
+                               y_pred,
+                               out_dir,
+                               last_activation,
+                               label=None):
+
+    basename = ".".join(os.path.basename(path_list["x"][i]).split(".")[:-1])
+
+    if (label is None) and (last_activation == "sigmoid"):
+        raise Exception("label is needed, when last_activation is sigmoid.")
+
+    # x
+    fname = os.path.join(out_dir, "{}_x.png".format(basename))
+    shutil.copy(path_list["x"][i], fname)
+
+    # extra_x
+    if path_list["extra_x"] is not None:
+        extra_x = np.load(path_list["extra_x"][i])
+        if len(extra_x.shape) == 2:
+            extra_x = extra_x[:, :, np.newaxis]
+
+        extra_x = extra_x + 1.0
+        extra_x = extra_x / 2.0
+        extra_x = extra_x * 255
+        extra_x = np.round(extra_x, 0).astype(np.uint8)
+
+        for j in range(extra_x.shape[-1]):
+            out_extra_x = cv2.resize(extra_x[:, :, j], (y_pred.shape[2], y_pred.shape[1]), interpolation=cv2.INTER_NEAREST)
+            fname = os.path.join(out_dir, "{}_extra_x{}.png".format(basename, j))
+            cv2.imwrite(fname, out_extra_x)
+
+    # y
+    x = cv2.imread(path_list["x"][i])
+    if last_activation == "softmax":
+        fname = os.path.join(out_dir, "{}_pred_seg.png".format(basename))
+        cv2.imwrite(fname, y_pred[i][:, :, ::-1])
+        if path_list["y"] is not None:
+            fname = os.path.join(out_dir, "{}_true_seg.png".format(basename))
+            shutil.copy(path_list["y"][i], fname)
+
+        y_mask = y_pred[i].copy() / 255
+        black_pix = (y_mask == np.array([0.0, 0.0, 0.0])).all(axis=2)
+        y_mask[black_pix, :] = [1.0, 1.0, 1.0]
+        x_mask = y_mask[:, :, ::-1] * x
+        fname = os.path.join(out_dir, "{}_pred_x_seg.png".format(basename))
+        cv2.imwrite(fname, x_mask.astype(np.uint8))
+
+        if path_list["y"] is not None:
+            y_true = cv2.imread(path_list["y"][i])
+            y_mask = y_true.copy() / 255
+            black_pix = (y_mask == np.array([0.0, 0.0, 0.0])).all(axis=2)
+            y_mask[black_pix, :] = [1.0, 1.0, 1.0]
+            x_mask = y_mask * x
+            fname = os.path.join(out_dir, "{}_true_x_seg.png".format(basename))
+            cv2.imwrite(fname, x_mask.astype(np.uint8))
+
+    elif last_activation == "sigmoid":
+        for j in range(label.n_labels):
+            label_name = label.name[j]
+            fname = os.path.join(
+                out_dir, "{}_{}_pred_seg.png".format(basename, label_name))
+            cv2.imwrite(fname, y_pred[i][j][:, :, ::-1])
+            if path_list["y"] is not None:
+                fname = os.path.join(
+                    out_dir, "{}_{}_true_seg.png".format(basename, label_name))
+                shutil.copy(path_list["y"], fname)
+
+            y_mask = y_pred[i][j].copy() / 255
+            black_pix = (y_mask == np.array([0.0, 0.0, 0.0])).all(axis=2)
+            white_pix = (y_mask == np.array([1.0, 1.0, 1.0])).all(axis=2)
+            y_mask[black_pix, :] = [0.5, 0.5, 0.5]
+            y_mask[white_pix, :] = [0.5, 0.5, 0.5]
+            fname = os.path.join(
+                out_dir, "{}_{}_pred_x_seg.png".format(basename, label_name))
+            x_mask = (y_mask[:, :, ::-1] * x).astype(np.uint8)
+            cv2.imwrite(fname, x_mask)
+
+            if path_list["y"] is not None:
+                x = cv2.imread(path_list["x"][i])
+                y_true = cv2.imread(path_list["y"][i])
+                y_mask = y_true / 255
+                black_pix = (y_mask == np.array([0.0, 0.0, 0.0])).all(axis=2)
+                white_pix = (y_mask == np.array([1.0, 1.0, 1.0])).all(axis=2)
+                y_mask[black_pix, :] = [0.5, 0.5, 0.5]
+                y_mask[white_pix, :] = [0.5, 0.5, 0.5]
+                fname = os.path.join(
+                    out_dir, "{}_{}_true_x_seg.png".format(basename, label_name))
+                x_mask = (y_mask * x).astype(np.uint8)
+                cv2.imwrite(fname, x_mask)
+
+
+def visualise_inference_result_old(
     i,
     x,
     y_pred,

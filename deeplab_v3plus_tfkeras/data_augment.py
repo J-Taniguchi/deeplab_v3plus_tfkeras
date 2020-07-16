@@ -70,4 +70,4 @@ def data_augment(image, mask, image_size, p, extra_x=None):
             lambda: augmentor(image, mask, extra_x),
             lambda: (image, mask, extra_x))
 
-        return image, mask, extra_x
+    return image, mask, extra_x

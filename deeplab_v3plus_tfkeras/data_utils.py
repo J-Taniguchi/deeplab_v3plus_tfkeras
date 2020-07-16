@@ -1,4 +1,4 @@
-# import copy
+import math
 
 import tensorflow as tf
 import numpy as np
@@ -225,7 +225,8 @@ def make_xy_from_data_paths(x_paths,
                             y_paths,
                             image_size,
                             label,
-                            extra_x_paths=None):
+                            extra_x_paths=None,
+                            as_np=False):
     """make x and y from data paths.
 
     Args:
@@ -246,7 +247,10 @@ def make_xy_from_data_paths(x_paths,
         out = np.zeros((image_size[1], image_size[0], 3))
         out[0:image.shape[0], 0:image.shape[1]] = image[:, :]
         x.append(out)
-    x = tf.convert_to_tensor(x)
+    if as_np:
+        x = np.array(x, dtype=np.float32)
+    else:
+        x = tf.convert_to_tensor(x, dtype=tf.float32)
     if y_paths is None:
         return x
 
@@ -260,7 +264,10 @@ def make_xy_from_data_paths(x_paths,
         y0 = convert_image_array_to_y(image, label)
         y.append(y0)
 
-    y = tf.convert_to_tensor(y)
+    if as_np:
+        y = np.array(y, dtype=np.float32)
+    else:
+        y = tf.convert_to_tensor(y, dtype=tf.float32)
     if extra_x_paths is None:
         return x, y
     else:
@@ -273,9 +280,60 @@ def make_xy_from_data_paths(x_paths,
             if len(out.shape) == 2:
                 out = out[:, :, np.newaxis]
             extra_x.append(out)
-        extra_x = tf.convert_to_tensor(extra_x)
+        if as_np:
+            extra_x = np.array(extra_x, dtype=np.float32)
+        else:
+            extra_x = tf.convert_to_tensor(extra_x, dtype=tf.float32)
 
         return x, extra_x, y
+
+
+def make_xy_from_data_path(x_path,
+                           y_path,
+                           image_size,
+                           label,
+                           extra_x_path=None):
+    """make x and y from data paths.
+
+    Args:
+        x_path: path to x image
+        y_path: y image. if None, y is exported as None
+        image_size (tuple): model input and output size.(width, height)
+        label (Label): class "Label" written in label.py
+    Returns:
+        np.array: x, extra_x, y
+
+    """
+
+    # make x
+    image = tf.io.read_file(x_path)
+    image = tf.image.decode_image(image, channels=3)
+    x = np.zeros((image_size[1], image_size[0], 3))
+    x[0:image.shape[0], 0:image.shape[1]] = image[:, :]
+    x = tf.convert_to_tensor(x)
+
+    # make y
+    if y_path is None:
+        y = None
+    else:
+        image = tf.io.read_file(y_path)
+        image = tf.image.decode_image(image, channels=3)
+        y = convert_image_array_to_y(image, label)
+        y = tf.convert_to_tensor(y)
+
+    # make extra_x
+    if extra_x_path is None:
+        extra_x = None
+    else:
+        if type(extra_x_path) is str:
+            extra_x = np.load(extra_x_path)
+        else:
+            extra_x = np.load(extra_x_path.numpy())
+        if len(extra_x.shape) == 2:
+            extra_x = extra_x[:, :, np.newaxis]
+        extra_x = tf.convert_to_tensor(extra_x)
+
+    return x, extra_x, y
 
 
 def convert_image_array_to_y(image_array, label):
@@ -337,20 +395,58 @@ def get_random_crop_area(image_size, out_size):
     return (xmin, ymin, xmax, ymax)
 
 
-def save_inference_results(fpath, x, pred, last_activation, y=[], extra_x=[], basenames=[]):
+def save_inference_results(fpath, pred, last_activation):
     with h5py.File(fpath, "w") as f:
-        f.create_dataset("x", data=x)
-        f.create_dataset("y", data=y)
-        f.create_dataset("extra_x", data=extra_x)
-        if len(basenames) != 0:
-            basenames = [basename.encode("utf8") for basename in basenames]
+        f.create_dataset("pred", data=pred)
+        f.create_dataset("last_activation", data=last_activation)
+
+
+def load_inference_results(fpath):
+    with h5py.File(fpath, "r") as f:
+        pred = f["pred"][()]
+        last_activation = f["last_activation"][()]
+
+    return pred, last_activation
+
+
+def save_inference_results_old(fpath, pred, dataset, path_list, last_activation):
+    with h5py.File(fpath, "w") as f:
+        out_x = []
+        out_y = []
+        out_extra_x = []
+        di = dataset.as_numpy_iterator()
+
+        for d in di:
+            if path_list["extra_x"] is None:
+                if path_list["y"] is None:
+                    x = d
+                else:
+                    x, y = d
+                    out_y.extend(y)
+            else:
+                if path_list["y"] is None:
+                    x, extra_x = d
+                else:
+                    x, extra_x, y = d
+                    out_y.extend(y)
+                out_extra_x.extend(extra_x)
+            out_x.extend(x)
+
+        f.create_dataset("x", data=np.array(out_x))
+        f.create_dataset("y", data=np.array(out_y))
+        f.create_dataset("extra_x", data=np.array(out_extra_x))
+
+        if path_list["basenames"] is None:
+            basenames = []
+        else:
+            basenames = [basename.encode("utf8") for basename in path_list["basenames"]]
         f.create_dataset("basenames", data=basenames)
 
         f.create_dataset("pred", data=pred)
         f.create_dataset("last_activation", data=last_activation)
 
 
-def load_inference_results(fpath):
+def load_inference_results_old(fpath):
     with h5py.File(fpath, "r") as f:
         x = f["x"][()]
         extra_x = f["extra_x"][()]
