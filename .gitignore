@@ -8,3 +8,4 @@ run_FL.sh
 test_CE.yml
 test_FL.yml
 test.py
+.venv/
