@@ -41,6 +41,7 @@ valid_y_dirs = conf["valid_y_dirs"]
 
 test_x_dirs = conf["test_x_dirs"]
 test_extra_x_dirs = conf.get("test_extra_x_dirs", None)
+test_y_dirs = conf.get("test_y_dirs", None)
 
 model_for_inference = conf.get("model_for_inference", "best_model")
 which_to_inference = conf["which_to_inference"]
@@ -113,7 +114,7 @@ if "test" in which_to_inference:
         label,
         preprocess,
         batch_size,
-        y_dirs=None,
+        y_dirs=test_y_dirs,
         extra_x_dirs=test_extra_x_dirs,
         n_extra_channels=n_extra_channels,
         data_augment=False,

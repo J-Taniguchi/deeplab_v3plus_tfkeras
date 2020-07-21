@@ -408,64 +408,6 @@ def load_inference_results(fpath):
 
     return pred, last_activation
 
-
-def save_inference_results_old(fpath, pred, dataset, path_list, last_activation):
-    with h5py.File(fpath, "w") as f:
-        out_x = []
-        out_y = []
-        out_extra_x = []
-        di = dataset.as_numpy_iterator()
-
-        for d in di:
-            if path_list["extra_x"] is None:
-                if path_list["y"] is None:
-                    x = d
-                else:
-                    x, y = d
-                    out_y.extend(y)
-            else:
-                if path_list["y"] is None:
-                    x, extra_x = d
-                else:
-                    x, extra_x, y = d
-                    out_y.extend(y)
-                out_extra_x.extend(extra_x)
-            out_x.extend(x)
-
-        f.create_dataset("x", data=np.array(out_x))
-        f.create_dataset("y", data=np.array(out_y))
-        f.create_dataset("extra_x", data=np.array(out_extra_x))
-
-        if path_list["basenames"] is None:
-            basenames = []
-        else:
-            basenames = [basename.encode("utf8") for basename in path_list["basenames"]]
-        f.create_dataset("basenames", data=basenames)
-
-        f.create_dataset("pred", data=pred)
-        f.create_dataset("last_activation", data=last_activation)
-
-
-def load_inference_results_old(fpath):
-    with h5py.File(fpath, "r") as f:
-        x = f["x"][()]
-        extra_x = f["extra_x"][()]
-        y = f["y"][()]
-        pred = f["pred"][()]
-        basenames = f["basenames"][()]
-        last_activation = f["last_activation"][()]
-        if len(y) == 0:
-            y = None
-        if len(basenames) == 0:
-            basenames = None
-        else:
-            basenames = [basename.decode("utf8") for basename in basenames]
-        if len(extra_x) == 0:
-            extra_x = None
-
-    return x, extra_x, y, pred, basenames, last_activation
-
-
 def make_pascal_voc_label_csv():
     VOC_COLORMAP = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
                     [0, 0, 128], [128, 0, 128], [0, 128, 128], [128, 128, 128],
