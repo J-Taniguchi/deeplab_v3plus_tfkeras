@@ -7,7 +7,7 @@ from glob import glob
 from PIL import Image, ImageDraw
 from tqdm import tqdm
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../deeplab_v3plus_tfkeras"))
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../deeplab_v3plus_tfkeras"))
 from label import Label
 
 parser = argparse.ArgumentParser()
@@ -96,7 +96,6 @@ print(data_paths)
 
 for data_path in tqdm(data_paths):
     img = make_y_from_poly_json_path(data_path, label, train_and)
-
     if train_and:
         for i in range(label.n_labels):
             out_name = os.path.basename(data_path)
