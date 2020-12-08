@@ -29,7 +29,7 @@ valid_x_dirs = conf["valid_x_dirs"]
 valid_extra_x_dirs = conf.get("valid_extra_x_dirs", None)
 valid_y_dirs = conf["valid_y_dirs"]
 
-test_x_dirs = conf["test_x_dirs"]
+test_x_dirs = conf.get("test_x_dirs", None)
 test_extra_x_dirs = conf.get("test_extra_x_dirs", None)
 test_y_dirs = conf.get("test_y_dirs", None)
 

@@ -112,7 +112,7 @@ def make_generator_with_extra_x(img_paths,
             x_out, extra_x_out = tf.py_function(
                 map_f,
                 inp=[x_path, extra_x_path],
-                Tout=(tf.float32, tf.float32, tf.float32))
+                Tout=(tf.float32, tf.float32))
             return (x_out, extra_x_out)
         ds = tf.data.Dataset.from_tensor_slices((img_paths, extra_x_paths))
     else:

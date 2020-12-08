@@ -48,6 +48,7 @@ metrics = conf["metrics"]
 check_categorical_metrics = conf.get("check_categorical_metrics", "True")
 class_weight = conf.get("class_weight", None)
 use_tensorboard = conf.get("use_tensorboard", False)
+use_batch_renorm = conf.get("use_batch_renorm", False)
 
 label = Label(label_file_path)
 if class_weight is not None:

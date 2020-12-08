@@ -1,5 +1,3 @@
-import math
-
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -407,6 +405,7 @@ def load_inference_results(fpath):
         last_activation = f["last_activation"][()]
 
     return pred, last_activation
+
 
 def make_pascal_voc_label_csv():
     VOC_COLORMAP = [[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
