@@ -37,7 +37,7 @@ def visualise_inference_result(i,
         extra_x = np.round(extra_x, 0).astype(np.uint8)
 
         for j in range(extra_x.shape[-1]):
-            out_extra_x = cv2.resize(extra_x[:, :, j], (y_pred.shape[2], y_pred.shape[1]), interpolation=cv2.INTER_NEAREST)
+            out_extra_x = cv2.resize(extra_x[:, :, j], (y_pred[i].shape[2], y_pred[i].shape[1]), interpolation=cv2.INTER_NEAREST)
             fname = os.path.join(out_dir, "{}_extra_x{}.png".format(basename, j))
             cv2.imwrite(fname, out_extra_x)
 
