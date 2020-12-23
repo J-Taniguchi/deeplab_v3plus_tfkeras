@@ -12,7 +12,7 @@
 ## useage
 
 Programs for semantic segmentation.
-If you want to use Jupyter Notebook, see this [branch](https://github.com/J-Taniguchi/deeplab_v3plus_tfkeras/tree/jupyter)
+In this program, you can input more than 3 channles(RGB). (it is called extra channels here.)
 
 use like run_sample.sh.
 
@@ -39,11 +39,14 @@ See conf_sample.yml.
 | :---: | :--- |
 |use_devices | use gpu number. If you want to do distributed learning, write like "0,1,2" |
 |model_dir |all outputs are written here. <br>e.g., trained model, inference results, etc..|
+|n_extra_channels|If you have only image for inputs, set 0. If you have extra input, set the number of extra channels.|
 | train_x_dirs<br> valid_x_dirs<br> test_x_dirs | list of directories where input images exist.|
+| train_extra_x_dirs<br> valid_extra_x_dirs<br> test_extra_x_dirs | optional. list of directories where input extra layer exist.|
 |  train_y_dirs<br> valid_y_dirs                   | list of directories where segmentation image exsit.<br> Each segmentation image name must be the same for corresponding input image.  |
 |which_to_inference <br> which_to_visualise          | chosse from "train", "valid", "test".|
 |output_activation                                   | chosse "softmax" or "sigmoid". <br>softmax means each pixcel is assigned to 1 label.<br>sigmoid means each pixel can assigned 1 or more labels.|
 |batch_size | batch size|
+|use_batch_renorm|If True, use batch renorm.|
 |n_epochs   |nuber of epochs |
 |image_size | [height, width] |
 |optimizer  |"Adam" or "Nadam" or "SGD" |
