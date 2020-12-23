@@ -28,9 +28,9 @@ test_x_dirs:
     - path/to/test_x_dir1
     - path/to/test_x_dir2
 #if you don't use the value, write "~" like below, or don't define it.
-#test_data_paths: ~
+#test_x_dirs: ~
 
-test_extra_x_dirs:
+# test_extra_x_dirs:
 
 # test_y_dirs:
 #     - path/to/test_y_dir1
@@ -75,7 +75,7 @@ check_categorical_metrics: True
 # True or False
 use_tensorboard: True
 # default is model_dir
-tensorboard_dir: /home/taniguchi-j/shokusei/okayama/result
+tensorboard_dir: /home/taniguchi-j/tensorboard
 
 # below is not supported now.
 # The length of class_weight must be same as the number of labels.
